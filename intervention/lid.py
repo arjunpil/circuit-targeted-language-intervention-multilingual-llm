@@ -6,7 +6,6 @@ import numpy as np
 
 import fasttext.FastText as _ft
 
-# fasttext passes copy=False to np.array, which numpy 2 rejects
 _ft.np = type(sys)("_np_compat")
 _ft.np.__dict__.update(np.__dict__)
 _ft.np.array = lambda *a, **kw: np.asarray(*a, **{k: v for k, v in kw.items() if k != "copy"})
@@ -29,7 +28,6 @@ def _classify(model, text, allowed):
 
 
 def classify(text, model, allowed=None):
-    # allowed restricts the answer to these labels, e.g. ("en", "es")
     text = text.replace("\n", " ").strip()
     if not text:
         return "unk"
@@ -59,8 +57,6 @@ def token_labels(token_ids, tok, model, window=5, allowed=None, by_word=False):
     tokens = [tok.decode([t]) for t in token_ids]
     if not by_word:
         return classify_tokens(tokens, model, window, allowed)
-    # words start at leading whitespace, after punctuation, and at every CJK token. each word is
-    # decoded as a whole so characters split across tokens come back
     groups, words, owner = [], [], []
     for t, s in zip(token_ids, tokens):
         prev = words[-1] if words else ""

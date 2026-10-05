@@ -8,7 +8,6 @@ from intervention.hooks import head_dim
 
 @torch.no_grad()
 def rank_heads(model, tok, texts_by_lang, dirs, src, tgt, layers=None, batch_size=16):
-    # d' of c_h . v between src and tgt tokens, sorted by |d'|
     H, DH = model.config.num_attention_heads, head_dim(model.config)
     layers = list(layers if layers is not None else range(model.config.num_hidden_layers))
     o_projs = {l: model.model.layers[l].self_attn.o_proj for l in layers}
@@ -58,7 +57,6 @@ def matched_random(heads, n_heads, seed):
 
 
 def matched_nearby(heads, n_heads, n_layers, seed):
-    # same count per layer, taken from the layer just above or below
     rng = random.Random(seed)
     out = {}
     for l, hs in heads.items():

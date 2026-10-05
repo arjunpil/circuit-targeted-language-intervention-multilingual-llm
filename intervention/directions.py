@@ -5,8 +5,6 @@ from sklearn.decomposition import PCA
 
 @torch.no_grad()
 def collect_hidden_states(model, tok, texts, indices, skip_first=True, batch_size=16):
-    # index i + 1 is the output of layer i. HF returns the last one after the final norm,
-    # so that one is taken from a hook instead
     indices = sorted(set(indices))
     L = model.config.num_hidden_layers
     out = {i: [] for i in indices}
@@ -31,7 +29,6 @@ def collect_hidden_states(model, tok, texts, indices, skip_first=True, batch_siz
 
 
 def fit_pca(hs_by_lang, n_components=10):
-    # per layer, on the pooled tokens of all languages like the reference code
     langs = list(hs_by_lang)
     stats = {}
     for i in hs_by_lang[langs[0]]:
@@ -48,7 +45,6 @@ def fit_pca(hs_by_lang, n_components=10):
 
 
 def pc1_accuracy(stats, hs_by_lang, src, tgt):
-    # per-token accuracy of splitting the two languages at the midpoint of their PC1 means
     acc = {}
     for i, st in stats.items():
         ps = ((hs_by_lang[src][i] - st["mean"]) @ st["pc1"]).numpy()
