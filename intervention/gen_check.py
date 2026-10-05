@@ -14,6 +14,7 @@ from intervention.lid import load_lid, token_labels
 from intervention.metrics import summarize
 from intervention.reference import GEN, coef as paper_coef, last_two
 
+
 def boot_ci(d, n=4000, seed=0):
     rng = random.Random(seed)
     m = sorted(sum(rng.choice(d) for _ in d) / len(d) for _ in range(n))
