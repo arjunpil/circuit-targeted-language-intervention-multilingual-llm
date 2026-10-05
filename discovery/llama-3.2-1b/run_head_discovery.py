@@ -23,14 +23,14 @@ from common import (
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
-            "Run Qwen2.5 EN->ES attention-head discovery "
+            "Run Llama-3.2-1B EN->ES attention-head discovery "
             "and exact activation patching."
         )
     )
 
     p.add_argument(
         "--model",
-        default="Qwen/Qwen2.5-1.5B",
+        default="meta-llama/Llama-3.2-1B",
     )
 
     p.add_argument(
@@ -66,7 +66,7 @@ def parse_args():
     p.add_argument(
         "--metric-json",
         default=(
-            "discovery/qwen2.5-1.5b/results/"
+            "discovery/llama-3.2-1b/results/"
             "en_es_language_metric.json"
         ),
     )

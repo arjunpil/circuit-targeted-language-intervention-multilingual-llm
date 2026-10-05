@@ -144,7 +144,7 @@ def language_metric(
 
 
 def load_model_and_tokenizer(
-    model_name="Qwen/Qwen2.5-1.5B",
+    model_name="meta-llama/Llama-3.2-1B",
     device=None,
 ):
     """Load the model in the configuration used by the pilot."""

@@ -19,7 +19,7 @@ defaults:
   n_nearby: 5
   seed: 0
   on_missing_heads: standin
-  heads_json: discovery/results/{model}_en_{lang}_heads.json
+  heads_json: discovery/qwen2.5-1.5b/results/{model}_en_{lang}_heads.json
 matrix:
   model: [qwen25]
   lang: [es, ru, zh, hi]
