@@ -1,0 +1,51 @@
+{
+  "model": "meta-llama/Llama-3.2-1B",
+  "language_pair": "en->es",
+  "selection_rule": "top five source-to-destination head paths by absolute mean exact effect on discovery examples 200-229",
+  "discovery_example_indices": [
+    200,
+    229
+  ],
+  "paths": [
+    {
+      "src_layer": 13,
+      "src_head": 4,
+      "dst_layer": 14,
+      "dst_head": 5,
+      "discovery_effect": 0.050765577952067056,
+      "discovery_sign": 1
+    },
+    {
+      "src_layer": 12,
+      "src_head": 7,
+      "dst_layer": 14,
+      "dst_head": 18,
+      "discovery_effect": 0.0242094357808431,
+      "discovery_sign": 1
+    },
+    {
+      "src_layer": 12,
+      "src_head": 7,
+      "dst_layer": 15,
+      "dst_head": 24,
+      "discovery_effect": -0.020359547932942708,
+      "discovery_sign": -1
+    },
+    {
+      "src_layer": 12,
+      "src_head": 7,
+      "dst_layer": 14,
+      "dst_head": 17,
+      "discovery_effect": 0.019881153106689455,
+      "discovery_sign": 1
+    },
+    {
+      "src_layer": 12,
+      "src_head": 7,
+      "dst_layer": 13,
+      "dst_head": 4,
+      "discovery_effect": -0.01752325693766276,
+      "discovery_sign": -1
+    }
+  ]
+}
