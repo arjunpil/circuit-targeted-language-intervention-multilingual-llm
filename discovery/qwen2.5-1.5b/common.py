@@ -7,10 +7,11 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DISCOVERY_DIR = ROOT / "discovery"
+MODEL_DIR = Path(__file__).resolve().parent
 DATA_DIR = DISCOVERY_DIR / "data"
-RESULTS_DIR = DISCOVERY_DIR / "results"
+RESULTS_DIR = MODEL_DIR / "results"
 
 FLORES_ARCHIVE = DATA_DIR / "flores200_dataset.tar.gz"
 FLORES_DIR = DATA_DIR / "flores200_dataset"

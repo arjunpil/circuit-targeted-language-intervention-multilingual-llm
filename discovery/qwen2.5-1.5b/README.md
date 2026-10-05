@@ -100,7 +100,7 @@ language-identity circuitry.
 
 ## Reproducing the discovery pipeline
 
-The discovery code can be run as Python modules from the repository root.
+The discovery scripts can be run from the repository root.
 FLORES-200 is downloaded and extracted under `discovery/data/` when it is
 not already available. The data directory is ignored by Git.
 
@@ -112,7 +112,7 @@ The EN→ES objective uses the fixed English and Spanish token sets stored in
 Run the 30-example attention-head discovery experiment with:
 
 ```bash
-python -m discovery.run_head_discovery \
+python discovery/qwen2.5-1.5b/run_head_discovery.py \
   --start 0 \
   --n-examples 30 \
   --top-k 30 \
@@ -139,7 +139,7 @@ attribution/exact sign agreement is at least 0.75.
 Run the source-to-destination path analysis with:
 
 ```bash
-python -m discovery.run_path_validation \
+python discovery/qwen2.5-1.5b/run_path_validation.py \
   --start 200 \
   --n-examples 30 \
   --out results/discovery_repro/path_validation_full.json
@@ -162,10 +162,10 @@ The largest path effects are:
 - L16H9 → L27H6: -0.004845
 
 Additional held-out validation results and matched-control comparisons are
-stored under `discovery/results/`.
+stored under `discovery/qwen2.5-1.5b/results/`.
 
 ### Generated outputs
 
 The commands above write generated outputs under the repository-level
 `results/` directory. That directory is ignored by Git. The validated
-experiment artifacts under `discovery/results/` remain unchanged.
+experiment artifacts under `discovery/qwen2.5-1.5b/results/` remain unchanged.

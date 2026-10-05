@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from scipy.stats import spearmanr
 
-from discovery.common import (
+from common import (
     ROOT,
     build_position_matched_examples,
     capture_head_outputs,
@@ -66,7 +66,7 @@ def parse_args():
     p.add_argument(
         "--metric-json",
         default=(
-            "discovery/results/"
+            "discovery/qwen2.5-1.5b/results/"
             "en_es_language_metric.json"
         ),
     )
