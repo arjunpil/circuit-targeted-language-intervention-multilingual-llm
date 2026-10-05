@@ -8,7 +8,6 @@ def head_dim(cfg):
 
 
 def head_contributions(o_proj, z, n_heads, dh):
-    # (B, T, H*DH) o_proj input -> (B, T, H, D)
     W = o_proj.weight.view(o_proj.out_features, n_heads, dh)
     return torch.einsum("bthk,dhk->bthd", z.view(*z.shape[:2], n_heads, dh), W)
 
@@ -18,7 +17,6 @@ def _coef(coef, layer):
 
 
 class ResidualSteer:
-    # h <- h + c ((h - mu) . v) v on decoder layer outputs, as in the 2510.13849 code
     def __init__(self, layers, coef, means, dirs):
         self.layers, self.coef, self.means, self.dirs = layers, coef, means, dirs
 
@@ -37,8 +35,36 @@ class ResidualSteer:
         return handles
 
 
+class GatedResidualSteer(ResidualSteer):
+    def __init__(self, layers, coef, means, dirs, n_source=20):
+        super().__init__(layers, coef, means, dirs)
+        self.n_source = n_source
+
+    def attach(self, model):
+        w = model.model.embed_tokens.weight
+        ref = {}
+        handles = []
+        for l in self.layers:
+            mu, v, c = self.means[l].to(w), self.dirs[l].to(w), _coef(self.coef, l)
+
+            def fn(module, inputs, output, l=l, mu=mu, v=v, c=c):
+                h = output[0] if isinstance(output, tuple) else output
+                p = (h - mu) @ v
+                if l not in ref:
+                    if h.shape[0] != 1:
+                        raise ValueError("gated steering takes one prompt at a time")
+                    ref[l] = p[:, :self.n_source].mean()
+                    gate = torch.ones_like(p)
+                else:
+                    gate = (p * ref[l] > 0).to(p.dtype)
+                h = h + c * (p * gate)[..., None] * v
+                return (h, *output[1:]) if isinstance(output, tuple) else h
+
+            handles.append(model.model.layers[l].register_forward_hook(fn))
+        return handles
+
+
 class HeadSteer:
-    # same transform through the selected heads only: c_h <- c_h + c (c_h . v) v
     def __init__(self, heads, coef, dirs):
         self.heads, self.coef, self.dirs = heads, coef, dirs
 
@@ -48,7 +74,6 @@ class HeadSteer:
         for l, hs in self.heads.items():
             o = model.model.layers[l].self_attn.o_proj
             v = self.dirs[l].to(o.weight)
-            # sum_h c_h . v = z . u, with u = W_O^h^T v on the selected heads and 0 elsewhere
             u = torch.zeros(H * DH, device=v.device, dtype=v.dtype)
             for h in hs:
                 u[h * DH:(h + 1) * DH] = o.weight[:, h * DH:(h + 1) * DH].T @ v

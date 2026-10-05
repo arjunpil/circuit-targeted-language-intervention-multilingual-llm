@@ -15,7 +15,6 @@ URLS = {
         "ted_talks_code_switching_second_half.jsonl",
 }
 
-# FLORES-200 code, code-switch column in the TED file, fastText label
 LANGS = {
     "en": ("eng_Latn", "eng_Latn", "en"),
     "es": ("spa_Latn", "spa_Latn", "es"),
