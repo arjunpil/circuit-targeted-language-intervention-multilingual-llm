@@ -20,5 +20,9 @@
   "language_pair": "en->es",
   "activation_site": "attention head output before o_proj",
   "discovery_examples": 30,
-  "heldout_examples": 50
+  "heldout_examples": 50,
+  "discovery_indices": [
+    0,
+    29
+  ]
 }
