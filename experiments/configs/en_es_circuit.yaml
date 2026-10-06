@@ -13,11 +13,11 @@ defaults:
   steer_layers: [26, 27]
   resid_coefs: [-2.8, -1, 1]
   resid_own_coefs: [-1]
-  head_coefs: [-1, -3, -10]
+  head_coefs: [-1, -3, -10, -20]
   n_random: 10
   n_nearby: 5
   on_missing_heads: error
-  heads_json: discovery/qwen2.5-1.5b/results/qwen25_en_{lang}_heads.json
+  heads_json: discovery/results/qwen25_en_{lang}_heads.json
 matrix:
   model: [qwen25]
   lang: [es]
