@@ -49,6 +49,45 @@ English activations patched into Spanish prompts:
 
 Both directions exceeded the 95th percentile of the matched random controls.
 
+## Base-to-Instruct head-set transfer
+
+The frozen five-head set was also evaluated without rediscovery on
+`Qwen/Qwen2.5-1.5B-Instruct`. To isolate the model-weight change from prompt
+formatting, this comparison uses the same raw FLORES-200 prefixes as the base
+model rather than applying the instruction model's chat template.
+
+On 50 FLORES examples with 100 layer-matched random controls:
+
+Spanish activations patched into English prompts:
+
+- mean effect: +1.4457
+- 95% bootstrap CI: [+1.2532, +1.6464]
+- random-control 95th percentile: +0.1105
+- percentile versus controls: 100%
+
+English activations patched into Spanish prompts:
+
+- mean effect: +0.9632
+- 95% bootstrap CI: [+0.4862, +1.5030]
+- random-control 95th percentile: +0.1157
+- percentile versus controls: 100%
+
+Both directions pass the same held-out validation gates on the instruction
+model. A code-matched rerun of `Qwen/Qwen2.5-1.5B` with this validation runner
+reproduces the selected-head effects at +1.2216 and +0.8613.
+
+Validation summaries are stored in:
+
+- `results/qwen25_base_en_es_head_validation_code_matched.json`
+- `results/qwen25_instruct_en_es_head_validation_holdout.json`
+
+The validation runner can reproduce the full per-example and matched-control
+outputs when a detailed output path is supplied with `--out`.
+
+This establishes transfer of the frozen head set under direct activation
+patching. It does not by itself establish that a particular steering direction
+transfers between the base and instruction-tuned models.
+
 ## Source-to-destination path validation
 
 Source-head interventions were propagated through the model and the resulting
@@ -93,10 +132,11 @@ The compact circuit description is stored in
 
 ## Scope
 
-These results establish a held-out EN→ES pilot circuit in Qwen2.5-1.5B.
-Replication across additional language pairs and downstream intervention
-evaluation are required before making broader claims about multilingual
-language-identity circuitry.
+These results establish a held-out EN→ES pilot circuit in Qwen2.5-1.5B and
+show that the frozen head set remains causally effective under direct
+activation patching in Qwen2.5-1.5B-Instruct. Replication across additional
+language pairs and model scales is required before making broader claims about
+multilingual language-identity circuitry.
 
 ## Reproducing the discovery pipeline
 
@@ -133,6 +173,34 @@ For Qwen2.5-1.5B on the EN→ES experiment, this produces:
 
 Heads are selected when their mean exact effect is at least +0.10 and their
 attribution/exact sign agreement is at least 0.75.
+
+### Head-set validation and Base-to-Instruct transfer
+
+Run the frozen five-head validation on the base model with:
+
+```bash
+python discovery/qwen2.5-1.5b/run_head_validation.py \
+  --model Qwen/Qwen2.5-1.5B \
+  --start 100 \
+  --n-examples 50 \
+  --n-random-controls 100 \
+  --seed 42
+```
+
+Evaluate the same frozen heads on the instruction-tuned model with:
+
+```bash
+python discovery/qwen2.5-1.5b/run_head_validation.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --start 100 \
+  --n-examples 50 \
+  --n-random-controls 100 \
+  --seed 42
+```
+
+Both commands use raw FLORES prefixes without a chat template so that the
+Base-to-Instruct comparison changes the model while keeping the activation
+patching protocol fixed.
 
 ### Source-to-destination path validation
 

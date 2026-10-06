@@ -1,0 +1,58 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "frozen_head_source_model": "Qwen/Qwen2.5-1.5B",
+  "language_pair": "en->es",
+  "activation_site": "attention head output before o_proj",
+  "input_protocol": "raw FLORES-200 devtest prefixes; no chat template",
+  "selected_heads": {
+    "16": [
+      9
+    ],
+    "17": [
+      7
+    ],
+    "22": [
+      6
+    ],
+    "25": [
+      10
+    ],
+    "27": [
+      6
+    ]
+  },
+  "discovery_indices": [
+    0,
+    29
+  ],
+  "holdout_indices": [
+    100,
+    149
+  ],
+  "n_holdout_pairs": 50,
+  "n_random_controls": 100,
+  "control_matching": "same selected layers and same number of heads per layer; selected heads excluded",
+  "random_seed": 42,
+  "bootstrap_samples": 10000,
+  "sufficiency": {
+    "selected_mean": 1.4457271194458008,
+    "bootstrap_95_ci": [
+      1.2532100744247439,
+      1.6463610906600952
+    ],
+    "random_95th_percentile": 0.11046006202697752,
+    "percentile_vs_random": 100.0,
+    "pass": true
+  },
+  "necessity": {
+    "selected_mean": 0.9631983375549317,
+    "bootstrap_95_ci": [
+      0.486189250946045,
+      1.5029896812438963
+    ],
+    "random_95th_percentile": 0.11572534608840941,
+    "percentile_vs_random": 100.0,
+    "pass": true
+  },
+  "overall_pass": true
+}
