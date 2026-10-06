@@ -43,6 +43,12 @@ def score(text, lang, lid, en_words):
     }
 
 
+def chat(tok, prompt):
+    text = tok.apply_chat_template([{"role": "user", "content": prompt}], tokenize=False,
+                                   add_generation_prompt=True, date_string="26 Jul 2024")
+    return text.removeprefix(tok.bos_token or "")
+
+
 def aggregate(scores, lang):
     kept = [s for s in scores if not s["skipped"]]
     m = {
@@ -102,6 +108,8 @@ def main():
     stats = fit_pca(hs)
     del hs
     dirs = {l: stats[l + 1]["pc1"] for l in layers}
+    ref_means = {l: stats[l]["mean"] for l in steer_layers if l in stats}
+    ref_dirs = {l: stats[l]["pc1"] for l in steer_layers if l in stats}
     ppl_idx = rng.sample(range(len(data.flores("en", "devtest"))), a.n_ppl)
     ppl_sets = {lang: [data.flores(lang, "devtest")[i] for i in ppl_idx] for lang in ("en", a.lang)}
 
@@ -112,9 +120,7 @@ def main():
             seen[source] = seen.get(source, 0) + 1
             if seen[source] <= a.n_per_source:
                 items.append({"task": task, "source": source, "idx": seen[source] - 1, "prompt": prompt})
-    chats = [tok.apply_chat_template([{"role": "user", "content": it["prompt"]}], tokenize=False,
-                                     add_generation_prompt=True, date_string="26 Jul 2024").removeprefix(tok.bos_token or "")
-             for it in items]
+    chats = [chat(tok, it["prompt"]) for it in items]
     order = sorted(range(len(chats)), key=lambda i: len(chats[i]))
 
     def run(ivs):
@@ -127,8 +133,7 @@ def main():
 
     conditions = [("none", 0.0, [])]
     conditions += [("heads", c, [HeadSteer(heads, c, dirs)]) for c in head_coefs]
-    conditions += [("residual", c, [ResidualSteer(steer_layers, c, {l: stats[l]["mean"] for l in steer_layers},
-                                                  {l: stats[l]["pc1"] for l in steer_layers})]) for c in resid_coefs]
+    conditions += [("residual", c, [ResidualSteer(steer_layers, c, ref_means, ref_dirs)]) for c in resid_coefs]
     for kind, sets in (("random", randoms), ("nearby", nearby)):
         conditions += [(f"{kind}{i}", c, [HeadSteer(sel, c, dirs)]) for i, sel in enumerate(sets) for c in head_coefs]
 
