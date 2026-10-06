@@ -170,6 +170,53 @@ def test_aggregate_across_runs(tmp_path):
     assert resid["cs_delta"]["lo"] > 0
     text = (agg / "report.md").read_text()
     assert "stand-in" in text and "qwen25_en_es" in text and "qwen25_en_ru" in text
+    assert "different code versions" not in text
+
+
+def test_code_hash_tracks_package_sources(tmp_path):
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "mod.py").write_text("x = 1\n")
+    first = cfgmod.code_hash("pkg.mod", tmp_path)
+    (tmp_path / "other.py").write_text("y = 2\n")
+    (pkg / "__pycache__").mkdir()
+    (pkg / "__pycache__" / "mod.py").write_text("junk")
+    assert cfgmod.code_hash("pkg.mod", tmp_path) == first
+    (pkg / "mod.py").write_text("x = 2\n")
+    assert cfgmod.code_hash("pkg.mod", tmp_path) != first
+    with pytest.raises(cfgmod.ConfigError):
+        cfgmod.code_hash("missing.mod", tmp_path)
+
+
+def test_code_change_invalidates_cache_and_report_warns(tmp_path):
+    path, _ = make_repo(tmp_path)
+    out = tmp_path / "out" / "t"
+    out.mkdir(parents=True)
+    (out / "mode.txt").write_text("OK")
+    calls = lambda: len((out / "calls.txt").read_text().split())
+    assert run.main([str(path), "--only", "_es"]) == 0 and calls() == 1
+    assert run.main([str(path), "--only", "_es"]) == 0 and calls() == 1
+    first = json.loads((out / "qwen25_en_es" / "manifest.json").read_text())["code_hash"]
+    runner_file = tmp_path / "fake_pilot.py"
+    runner_file.write_text(runner_file.read_text() + "\n")
+    assert run.main([str(path), "--only", "_ru", "--aggregate"]) == 0 and calls() == 2
+    assert run.main([str(path), "--only", "_es"]) == 0 and calls() == 3
+    second = json.loads((out / "qwen25_en_es" / "manifest.json").read_text())["code_hash"]
+    assert first != second
+    assert run.main([str(path), "--only", "_ru"]) == 0 and calls() == 3
+
+
+def test_aggregate_warns_on_mixed_code_versions(tmp_path):
+    path, _ = make_repo(tmp_path)
+    out = tmp_path / "out" / "t"
+    out.mkdir(parents=True)
+    (out / "mode.txt").write_text("OK")
+    assert run.main([str(path), "--only", "_es"]) == 0
+    runner_file = tmp_path / "fake_pilot.py"
+    runner_file.write_text(runner_file.read_text() + "\n")
+    assert run.main([str(path), "--only", "_ru", "--aggregate"]) == 0
+    assert "different code versions" in (out / "aggregate" / "report.md").read_text()
 
 
 def test_aggregate_lists_failed_runs(tmp_path):
@@ -185,6 +232,8 @@ def test_repo_configs_expand(tmp_path):
     for name in ("en_es_circuit", "language_grid"):
         cfg = cfgmod.load(REPO / "experiments" / "configs" / f"{name}.yaml")
         runs = cfgmod.expand(cfg, REPO)
+        if name == "en_es_circuit":
+            assert runs[0]["head_coefs"] == [-1, -3, -10, -20]
         assert runs and all(r["run_id"] for r in runs)
         for r in runs:
             if r["head_source"] != "skip":
