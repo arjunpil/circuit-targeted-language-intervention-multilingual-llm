@@ -1,9 +1,8 @@
-name: language_grid
+name: en_es_head_dir
 output_root: results/experiments
 runner: intervention.run_pilot
 models:
   qwen25: Qwen/Qwen2.5-1.5B
-  llama32: meta-llama/Llama-3.2-1B
 defaults:
   dtype: float32
   n_fit: 200
@@ -12,19 +11,17 @@ defaults:
   max_new_tokens: 60
   batch_size: 32
   resid_own_coefs: [-1]
-  head_coefs: [-1, -3, -10]
-  head_min_layer: 8
-  top_k: 5
+  head_coefs: [-1, -3, -10, -20]
   n_random: 10
   n_nearby: 5
   seed: 0
-  on_missing_heads: standin
+  on_missing_heads: error
+  model_dir: qwen2.5-1.5b
   heads_json: discovery/{model_dir}/results/{model}_en_{lang}_heads.json
 matrix:
-  model: [qwen25, llama32]
-  lang: [es, ru, zh, hi]
+  model: [qwen25]
+  lang: [es]
+  head_dir: [pc1, own]
 overrides:
-  - match: {model: qwen25}
-    set: {model_dir: qwen2.5-1.5b}
-  - match: {model: llama32}
-    set: {model_dir: llama-3.2-1b}
+  - match: {head_dir: own}
+    set: {head_coefs: [-1, -2, -4]}
