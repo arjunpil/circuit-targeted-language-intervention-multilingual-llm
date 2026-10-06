@@ -47,7 +47,7 @@ def aggregate(scores, lang):
     kept = [s for s in scores if not s["skipped"]]
     m = {
         "rep4": sum(s["rep4"] for s in scores) / len(scores),
-        "lpr": sum(s["line_pass"] for s in kept) / max(1, len(kept)),
+        "lpr": 1 - sum(not s["line_pass"] for s in kept) / max(1, len(kept)),
         "acc": sum(s["acc"] for s in kept) / len(kept) if kept else 1.0,
         "en": sum(s["en"] for s in kept) / len(kept) if kept else 0.0,
         "skipped": len(scores) - len(kept),
@@ -113,7 +113,7 @@ def main():
             if seen[source] <= a.n_per_source:
                 items.append({"task": task, "source": source, "idx": seen[source] - 1, "prompt": prompt})
     chats = [tok.apply_chat_template([{"role": "user", "content": it["prompt"]}], tokenize=False,
-                                     add_generation_prompt=True, date_string="26 Jul 2024").removeprefix(tok.bos_token)
+                                     add_generation_prompt=True, date_string="26 Jul 2024").removeprefix(tok.bos_token or "")
              for it in items]
     order = sorted(range(len(chats)), key=lambda i: len(chats[i]))
 
