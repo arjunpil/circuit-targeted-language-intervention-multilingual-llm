@@ -10,7 +10,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from intervention import data
 from intervention.directions import collect_hidden_states, fit_pca, pc1_accuracy
 from intervention.generation import generate, perplexity
-from intervention.heads import load_heads, matched_nearby, matched_random, rank_heads, save_heads, top_heads
+from intervention.heads import load_heads, matched_nearby, matched_randoms, rank_heads, save_heads, top_heads
 from intervention.hooks import GatedResidualSteer, HeadSteer, ResidualSteer, applied
 from intervention.lid import load_lid, token_labels
 from intervention.metrics import summarize
@@ -90,13 +90,7 @@ def main():
         with open(out / "head_scores.json", "w") as f:
             json.dump([{"layer": l, "head": h, "d": d} for l, h, d in scores], f)
     save_heads(heads, out / "heads.json", source=head_source)
-    randoms = []
-    for i in range(50 * a.n_random):
-        r = matched_random(heads, H, seed=a.seed + 1 + i)
-        if r not in randoms:
-            randoms.append(r)
-        if len(randoms) == a.n_random:
-            break
+    randoms = matched_randoms(heads, H, a.n_random, a.seed)
     nearby = [matched_nearby(heads, H, L, seed=a.seed + 1000 + i) for i in range(a.n_nearby)]
 
     ted_idx = rng.sample(range(len(data.ted_code_switch("en"))), a.n_eval)

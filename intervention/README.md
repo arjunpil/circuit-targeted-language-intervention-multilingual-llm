@@ -19,6 +19,13 @@ Paper numbers used as defaults and for comparison are in `reference.py`.
 
 Without `--heads-json` the head set is a stand-in, ranked by how differently each head writes along `v` for the two languages. Since it is picked with the same `v` it is steered with, its edge over the controls is partly built in. Use a step 1 circuit for real runs: `{"heads": {"27": [0, 3]}}`.
 
+## LCB (`lcb.py`)
+Language Confusion Benchmark (Marchisio et al. 2024, arXiv 2406.20052) on an instruct model with the chat template. Monolingual prompts are in `--lang` and expect a reply in it; crosslingual prompts are English instructions asking for `--lang`. LPR, WPR and line accuracy follow their `compute_metrics.py` and match it on their released completions. `en` is the share of lines identified as English. Generation is greedy, 100 new tokens (they sample with p=0.75, T=0.3).
+
+Head conditions use `--head-coefs` with the same controls as `run_pilot.py`, and `summary.json` compares each condition's LPR change from `none`. `--resid-coefs` adds the steering-paper baseline on `--steer-layers` (default the last two). Every condition also gets FLORES devtest perplexity in English and `--lang`, and `rep4` on the replies, since LPR only checks the language.
+
+With the Llama-3.2-1B en-es circuit on Llama-3.2-1B-Instruct, negative head coefficients turn replies to English in both settings and positive ones reduce crosslingual failures.
+
 ## Reproduction checks
 - `kl_check.py`: their next-token KL (Tables 3 and 7). Qwen en-es reproduces (7.50 → 4.73 at c = −2.75, paper 7.25 → 4.90 at −2.8). Llama matches unsteered (6.50 vs 6.52) but its best coefficient here is −1.25, not their −3.9.
 - `gen_check.py`: their generation eval (Table 9), first TED samples, 100 new tokens. Llama en-es reproduces (CSI 0.62 → 0.22, paper 0.62 → 0.23) and is stable across three PCA calibration samples (`--seed`). On Qwen the same protocol depends on the calibration sample: 0.67 → 0.99, 0.70 → 0.99 and 0.70 → 0.33 for seeds 0, 1, 2.
@@ -35,7 +42,9 @@ python -m intervention.kl_check --model Qwen/Qwen2.5-1.5B --lang es
 python -m intervention.gen_check --model meta-llama/Llama-3.2-1B --lang es
 python -m intervention.run_pilot --model meta-llama/Llama-3.2-1B --lang es \
     --heads-json discovery/llama-3.2-1b/results/llama32_en_es_heads.json --head-coefs=-1,-3,-5,-10
+python -m intervention.lcb --model meta-llama/Llama-3.2-1B-Instruct --lang es \
+    --heads-json discovery/llama-3.2-1b/results/llama32_en_es_heads.json
 ```
 Data downloads into `CTLI_DATA` (default `.data/`) on first use. Results go to `results/`, written per condition to `rows.jsonl` and `samples.jsonl` and summarized at the end in `summary.json`.
 
-`lid.py` and `metrics.py` are adapted from github.com/fxlrnrpt/language-steering-in-latent-space (MIT).
+`lid.py` and `metrics.py` are adapted from github.com/fxlrnrpt/language-steering-in-latent-space (MIT). The LCB metrics in `lcb.py` follow github.com/for-ai/language-confusion (Apache-2.0).
