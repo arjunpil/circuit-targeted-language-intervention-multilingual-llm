@@ -87,8 +87,8 @@ class HeadSteer:
 
 
 class HeadDirSteer:
-    def __init__(self, heads, coef, means_a, means_b):
-        self.heads, self.coef, self.means_a, self.means_b = heads, coef, means_a, means_b
+    def __init__(self, heads, coef, means_a, means_b, pull=False):
+        self.heads, self.coef, self.means_a, self.means_b, self.pull = heads, coef, means_a, means_b, pull
 
     def attach(self, model):
         H, DH = model.config.num_attention_heads, head_dim(model.config)
@@ -96,16 +96,16 @@ class HeadDirSteer:
         for l, hs in self.heads.items():
             o = model.model.layers[l].self_attn.o_proj
             U = torch.zeros(H, DH, device=o.weight.device, dtype=o.weight.dtype)
-            M = torch.zeros_like(U)
+            M, T = torch.zeros_like(U), torch.zeros(H, 1, device=U.device, dtype=U.dtype)
             for h in hs:
                 a, b = self.means_a[l][h].to(U), self.means_b[l][h].to(U)
-                U[h], M[h] = (a - b) / (a - b).norm(), (a + b) / 2
+                U[h], M[h], T[h] = (a - b) / (a - b).norm(), (a + b) / 2, (a - b).norm() / 2
             c = _coef(self.coef, l)
 
-            def fn(module, inputs, U=U, M=M, c=c):
+            def fn(module, inputs, U=U, M=M, T=T, c=c, pull=self.pull):
                 z = inputs[0].reshape(*inputs[0].shape[:-1], *U.shape)
                 p = ((z - M) * U).sum(-1, keepdim=True)
-                return ((z + c * p * U).reshape(inputs[0].shape), *inputs[1:])
+                return ((z + c * ((T - p) if pull else p) * U).reshape(inputs[0].shape), *inputs[1:])
 
             handles.append(o.register_forward_pre_hook(fn))
         return handles
