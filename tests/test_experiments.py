@@ -228,8 +228,24 @@ def test_aggregate_lists_failed_runs(tmp_path):
     assert "Not aggregated: qwen25_en_ru (failed)" in (out / "aggregate" / "report.md").read_text()
 
 
+def test_repo_heads_files_resolve_to_circuits():
+    cfg = cfgmod.load(REPO / "experiments" / "configs" / "en_es_circuit.yaml")
+    runs = cfgmod.expand(cfg, REPO)
+    assert {r["head_source"] for r in runs} == {"circuit"}
+    assert all(Path(r["heads_path"]).exists() for r in runs)
+    grid = cfgmod.expand(cfgmod.load(REPO / "experiments" / "configs" / "language_grid.yaml"), REPO)
+    by_id = {r["run_id"]: r["head_source"] for r in grid}
+    assert by_id["qwen25_en_es"] == "circuit" and by_id["llama32_en_es"] == "circuit"
+    assert by_id["qwen25_en_ru"] == "standin" and len(by_id) == 8
+
+
+def test_new_pilot_flags_are_supported():
+    assert {"resid_gated_coefs", "head_dir"} <= set(cfgmod.PILOT_KEYS)
+    assert {"--resid-gated-coefs", "--head-dir"} <= real_flags()
+
+
 def test_repo_configs_expand(tmp_path):
-    for name in ("en_es_circuit", "language_grid"):
+    for name in ("en_es_circuit", "language_grid", "en_es_head_dir"):
         cfg = cfgmod.load(REPO / "experiments" / "configs" / f"{name}.yaml")
         runs = cfgmod.expand(cfg, REPO)
         if name == "en_es_circuit":
