@@ -6,12 +6,12 @@ How much each intervention reduces code-switching, and what it costs. Works with
 - `ResidualSteer`: steering from Goncharov et al. 2025 (arXiv 2510.13849), same as their code: `h + c ((h - mu) . v) v` on the outputs of the last two decoder layers.
 - `GatedResidualSteer`: their generation-eval mode (`maintain_direction=True`, `n_source_tokens=20`). The prompt pass is steered everywhere and fixes a reference sign from the mean projection of its first 20 tokens; generated tokens are steered only when their projection has that sign. One prompt at a time.
 - `HeadSteer`: the same transform through selected heads' `W_O` only, `c_h + c (c_h . v) v`. `c = -1` removes `v` from those heads.
-- `HeadDirSteer`: the same kind of edit along each head's own axis instead of `v`, `z_h + c ((z_h - m_h) . u_h) u_h` at the `o_proj` input. `u_h` is the normalized difference between the head's mean output on `--lang` and on English FLORES text, `m_h` their midpoint. `c = -2` reflects a head across the midpoint. Used for the selected heads and the controls with `--head-dir own`.
+- `HeadDirSteer`: the same kind of edit along each head's own axis instead of `v`, `z_h + c ((z_h - m_h) . u_h) u_h` at the `o_proj` input. `u_h` is the normalized difference between the head's mean output on `--lang` and on English FLORES text, `m_h` their midpoint. `c = -2` reflects each head's coordinate on that axis across the midpoint. Used for the selected heads and the controls with `--head-dir own`.
 - `HeadScale`: scales selected heads.
 
 `v` is PC1 of a per-layer PCA over FLORES-200 dev tokens of both languages. Their code steers layer `l` with the PCA of `hidden_states[l]`, i.e. the previous layer's output. `residual` and `resid_gated` keep that, since it reproduces their numbers. `resid_own` and the head interventions use each layer's own output. The last layer is read before the final norm, because HF returns it normed.
 
-Which head direction works depends on the model. On Llama-3.2-1B-Instruct the circuit heads' language difference, mapped through `W_O`, lines up with `v` (mean |cos| 0.24, random heads 0.07), and `pc1` reaches the same effect at a lower cost than `own`. On Qwen2.5-1.5B-Instruct it is nearly orthogonal to `v` (0.06 vs 0.04), so `pc1` barely moves generation while `own` does.
+Which head direction works depends on the model. On Llama-3.2-1B-Instruct the circuit heads' language difference, mapped through `W_O`, lines up with `v` (mean |cos| 0.24, random heads 0.07), and `pc1` reaches the same effect at a lower cost than `own`. On Qwen2.5-1.5B-Instruct it is nearly orthogonal to `v` (0.06 vs 0.04), so `pc1` barely moves generation while `own` does. `alignment.py` prints these numbers.
 
 Paper numbers used as defaults and for comparison are in `reference.py`.
 

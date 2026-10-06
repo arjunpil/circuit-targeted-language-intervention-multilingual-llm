@@ -113,9 +113,6 @@ def main():
     ref_dirs = {l: stats[l]["pc1"] for l in steer_layers if l in stats}
     if a.head_dir == "own":
         mu = {lang: head_output_means(model, tok, fit[lang], sorted(layers), batch_size=a.batch_size) for lang in fit}
-
-    def head_iv(sel, c):
-        return HeadDirSteer(sel, c, mu[a.lang], mu["en"]) if a.head_dir == "own" else HeadSteer(sel, c, dirs)
     ppl_idx = rng.sample(range(len(data.flores("en", "devtest"))), a.n_ppl)
     ppl_sets = {lang: [data.flores(lang, "devtest")[i] for i in ppl_idx] for lang in ("en", a.lang)}
 
@@ -136,6 +133,9 @@ def main():
         for i, g in zip(order, ids):
             texts[i], reps[i] = tok.decode(g, skip_special_tokens=True), repeated_ngram_rate(g)
         return texts, reps
+
+    def head_iv(sel, c):
+        return HeadDirSteer(sel, c, mu[a.lang], mu["en"]) if a.head_dir == "own" else HeadSteer(sel, c, dirs)
 
     conditions = [("none", 0.0, [])]
     conditions += [("heads", c, [head_iv(heads, c)]) for c in head_coefs]
