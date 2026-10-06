@@ -10,10 +10,10 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from intervention import data
-from intervention.directions import collect_hidden_states, fit_pca
+from intervention.directions import collect_hidden_states, fit_pca, head_output_means
 from intervention.generation import generate, perplexity
 from intervention.heads import load_heads, matched_nearby, matched_randoms
-from intervention.hooks import HeadSteer, ResidualSteer, applied
+from intervention.hooks import HeadDirSteer, HeadSteer, ResidualSteer, applied
 from intervention.lid import load_lid
 from intervention.metrics import repeated_ngram_rate
 from intervention.reference import last_two
@@ -70,6 +70,7 @@ def main():
     p.add_argument("--lang", default="es", choices=["es", "ru", "hi", "ko"])
     p.add_argument("--heads-json", required=True)
     p.add_argument("--head-coefs", default="-3,-1,1,3")
+    p.add_argument("--head-dir", default="pc1", choices=["pc1", "own"])
     p.add_argument("--resid-coefs", default="", help="baseline from the steering paper, their layer indexing")
     p.add_argument("--steer-layers", default=None, help="default: last two layers")
     p.add_argument("--n-random", type=int, default=6)
@@ -110,6 +111,8 @@ def main():
     dirs = {l: stats[l + 1]["pc1"] for l in layers}
     ref_means = {l: stats[l]["mean"] for l in steer_layers if l in stats}
     ref_dirs = {l: stats[l]["pc1"] for l in steer_layers if l in stats}
+    if a.head_dir == "own":
+        mu = {lang: head_output_means(model, tok, fit[lang], sorted(layers), batch_size=a.batch_size) for lang in fit}
     ppl_idx = rng.sample(range(len(data.flores("en", "devtest"))), a.n_ppl)
     ppl_sets = {lang: [data.flores(lang, "devtest")[i] for i in ppl_idx] for lang in ("en", a.lang)}
 
@@ -131,11 +134,14 @@ def main():
             texts[i], reps[i] = tok.decode(g, skip_special_tokens=True), repeated_ngram_rate(g)
         return texts, reps
 
+    def head_iv(sel, c):
+        return HeadDirSteer(sel, c, mu[a.lang], mu["en"]) if a.head_dir == "own" else HeadSteer(sel, c, dirs)
+
     conditions = [("none", 0.0, [])]
-    conditions += [("heads", c, [HeadSteer(heads, c, dirs)]) for c in head_coefs]
+    conditions += [("heads", c, [head_iv(heads, c)]) for c in head_coefs]
     conditions += [("residual", c, [ResidualSteer(steer_layers, c, ref_means, ref_dirs)]) for c in resid_coefs]
     for kind, sets in (("random", randoms), ("nearby", nearby)):
-        conditions += [(f"{kind}{i}", c, [HeadSteer(sel, c, dirs)]) for i, sel in enumerate(sets) for c in head_coefs]
+        conditions += [(f"{kind}{i}", c, [head_iv(sel, c)]) for i, sel in enumerate(sets) for c in head_coefs]
 
     rows = []
     open(out / "samples.jsonl", "w").close()

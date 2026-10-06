@@ -8,10 +8,10 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from intervention import data
-from intervention.directions import collect_hidden_states, fit_pca, pc1_accuracy
+from intervention.directions import collect_hidden_states, fit_pca, head_output_means, pc1_accuracy
 from intervention.generation import generate, perplexity
 from intervention.heads import load_heads, matched_nearby, matched_randoms, rank_heads, save_heads, top_heads
-from intervention.hooks import GatedResidualSteer, HeadSteer, ResidualSteer, applied
+from intervention.hooks import GatedResidualSteer, HeadDirSteer, HeadSteer, ResidualSteer, applied
 from intervention.lid import load_lid, token_labels
 from intervention.metrics import summarize
 from intervention.reference import coef as paper_coef, last_two
@@ -36,6 +36,8 @@ def parse():
     p.add_argument("--resid-gated-coefs", default=None, help="baseline as in their generation eval; default: paper coef")
     p.add_argument("--resid-own-coefs", default="-1", help="baseline, each layer's own output")
     p.add_argument("--head-coefs", default="-1,-3,-10")
+    p.add_argument("--head-dir", default="pc1", choices=["pc1", "own"],
+                   help="pc1: shared residual PC1 through W_O; own: each head's mean output difference")
     p.add_argument("--heads-json", default=None)
     p.add_argument("--top-k", type=int, default=8)
     p.add_argument("--head-min-layer", type=int, default=0)
@@ -92,6 +94,12 @@ def main():
     save_heads(heads, out / "heads.json", source=head_source)
     randoms = matched_randoms(heads, H, a.n_random, a.seed)
     nearby = [matched_nearby(heads, H, L, seed=a.seed + 1000 + i) for i in range(a.n_nearby)]
+    if a.head_dir == "own":
+        used = sorted({l for sel in (heads, *randoms, *nearby) for l in sel})
+        mu = {lang: head_output_means(model, tok, fit[lang], used, batch_size=a.batch_size) for lang in fit}
+
+    def head_iv(sel, c):
+        return HeadDirSteer(sel, c, mu[a.lang], mu[tgt]) if a.head_dir == "own" else HeadSteer(sel, c, dirs)
 
     ted_idx = rng.sample(range(len(data.ted_code_switch("en"))), a.n_eval)
     prompts = {"cs": [data.ted_code_switch(a.lang)[i] for i in ted_idx],
@@ -108,7 +116,7 @@ def main():
                         lambda c=c: GatedResidualSteer(steer_layers, c, ref_means, ref_dirs)) for c in gated_coefs]
     conditions += [cond("resid_own", c, [ResidualSteer(steer_layers, c, means, dirs)]) for c in floats(a.resid_own_coefs)]
     for name, sets in (("heads", [heads]), ("random", randoms), ("nearby", nearby)):
-        conditions += [cond(name if name == "heads" else f"{name}{i}", c, [HeadSteer(hs, c, dirs)])
+        conditions += [cond(name if name == "heads" else f"{name}{i}", c, [head_iv(hs, c)])
                        for i, hs in enumerate(sets) for c in floats(a.head_coefs)]
 
     def gen(cnd, ps):
