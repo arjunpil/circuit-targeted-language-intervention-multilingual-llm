@@ -8,9 +8,9 @@ import yaml
 
 PILOT_KEYS = (
     "dtype", "n_fit", "n_eval", "n_ppl", "max_new_tokens", "batch_size", "steer_layers", "resid_coefs",
-    "resid_own_coefs", "head_coefs", "top_k", "head_min_layer", "n_random", "n_nearby", "seed",
+    "resid_gated_coefs", "resid_own_coefs", "head_coefs", "head_dir", "top_k", "head_min_layer", "n_random", "n_nearby", "seed",
 )
-AUX_KEYS = ("model", "lang", "heads_json", "tag", "on_missing_heads", "allow_head_mismatch", "model_name")
+AUX_KEYS = ("model", "lang", "model_dir", "heads_json", "tag", "on_missing_heads", "allow_head_mismatch", "model_name")
 LANGS = ("es", "ru", "zh", "hi")
 POLICIES = ("error", "standin", "skip")
 
