@@ -128,9 +128,26 @@ def cli_args(params, heads_path):
     return args
 
 
-def fingerprint(args, runner, heads_path):
+def code_hash(runner, repo_root):
+    root = Path(repo_root)
+    if runner.endswith(".py"):
+        path = Path(runner) if Path(runner).is_absolute() else root / runner
+        base, files = path.parent, [path] if path.exists() else []
+    else:
+        base = root / runner.split(".")[0]
+        files = sorted(p for p in base.rglob("*.py") if "__pycache__" not in p.parts) if base.is_dir() else []
+    if not files:
+        raise ConfigError(f"cannot find the source of runner {runner!r} under {root}")
     h = hashlib.sha256()
-    h.update(json.dumps({"args": args, "runner": runner}, sort_keys=True).encode())
+    for p in files:
+        h.update(str(p.relative_to(base)).encode())
+        h.update(p.read_bytes())
+    return h.hexdigest()[:12]
+
+
+def fingerprint(args, runner, heads_path, code):
+    h = hashlib.sha256()
+    h.update(json.dumps({"args": args, "runner": runner, "code": code}, sort_keys=True).encode())
     if heads_path:
         h.update(Path(heads_path).read_bytes())
     return h.hexdigest()[:16]

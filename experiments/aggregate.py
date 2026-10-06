@@ -95,7 +95,7 @@ def flat_run_row(manifest, analysis):
         "run_id": manifest["run_id"], "model": p["model_name"], "lang": p["lang"], "seed": p.get("seed", 0),
         "head_source": manifest["head_source"], "n_prompts": analysis["n_prompts"],
         "none_cs": analysis["none_cs"], "none_en": analysis["none_en"],
-        "git_commit": manifest.get("git_commit"), "seconds": manifest.get("seconds"),
+        "git_commit": manifest.get("git_commit"), "code_hash": manifest.get("code_hash"), "seconds": manifest.get("seconds"),
         "torch": manifest.get("torch"), "transformers": manifest.get("transformers"),
     }
 
@@ -146,6 +146,10 @@ def report(metric, run_rows, cond_rows, skipped):
     if any(r["head_source"] != "circuit" for r in run_rows):
         lines += ["Runs with head_source other than circuit use stand-in heads chosen with the same direction that is "
                   "steered, so their margin over the controls is partly built in and is not evidence for a circuit.", ""]
+    hashes = {r.get("code_hash") for r in run_rows}
+    if len(hashes) > 1:
+        lines += ["These runs were produced by different code versions (see code_hash in runs.csv); rerun the older "
+                  "ones before comparing them.", ""]
     lines += ["| run | heads | prompts | unsteered | coef | cs delta [95% CI] | en delta | ppl ratios | "
               "vs random mean (p) | vs nearby mean (p) |", "|---|---|---|---|---|---|---|---|---|---|"]
     by_run = {r["run_id"]: r for r in run_rows}

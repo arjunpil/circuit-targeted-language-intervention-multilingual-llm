@@ -40,6 +40,7 @@ def result_subdir(params):
 
 def plan(cfg, root, runner):
     runs = cfgmod.expand(cfg, REPO)
+    code = cfgmod.code_hash(runner, REPO)
     out = []
     for params in runs:
         run_dir = Path(root) / cfg["name"] / params["run_id"]
@@ -48,8 +49,8 @@ def plan(cfg, root, runner):
             continue
         base_args = cfgmod.cli_args(params, params["heads_path"])
         args = base_args + [f"--out={run_dir}"]
-        fp = cfgmod.fingerprint(base_args, runner, params["heads_path"])
-        out.append(dict(params=params, run_dir=run_dir, args=args, fingerprint=fp,
+        fp = cfgmod.fingerprint(base_args, runner, params["heads_path"], code)
+        out.append(dict(params=params, run_dir=run_dir, args=args, fingerprint=fp, code_hash=code,
                         command=command(runner, args), skip=False))
     return out
 
@@ -79,6 +80,7 @@ def execute(item):
         "head_source": params["head_source"],
         "heads_path": params["heads_path"],
         "fingerprint": item["fingerprint"],
+        "code_hash": item["code_hash"],
         "command": item["command"],
         "result_subdir": result_subdir(params),
         "status": "running",
