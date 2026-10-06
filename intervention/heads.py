@@ -56,6 +56,17 @@ def matched_random(heads, n_heads, seed):
     return out
 
 
+def matched_randoms(heads, n_heads, n, seed):
+    out = []
+    for i in range(50 * n):
+        r = matched_random(heads, n_heads, seed=seed + 1 + i)
+        if r not in out:
+            out.append(r)
+        if len(out) == n:
+            break
+    return out
+
+
 def matched_nearby(heads, n_heads, n_layers, seed):
     rng = random.Random(seed)
     out = {}
