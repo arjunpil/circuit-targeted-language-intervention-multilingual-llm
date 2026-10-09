@@ -70,7 +70,7 @@ def main():
     p.add_argument("--lang", default="es", choices=["es", "ru", "hi", "ko"])
     p.add_argument("--heads-json", required=True)
     p.add_argument("--head-coefs", default="-3,-1,1,3")
-    p.add_argument("--head-dir", default="pc1", choices=["pc1", "own"])
+    p.add_argument("--head-dir", default="pc1", choices=["pc1", "own", "pull"], help="pull: toward --lang")
     p.add_argument("--resid-coefs", default="", help="baseline from the steering paper, their layer indexing")
     p.add_argument("--steer-layers", default=None, help="default: last two layers")
     p.add_argument("--n-random", type=int, default=6)
@@ -111,7 +111,7 @@ def main():
     dirs = {l: stats[l + 1]["pc1"] for l in layers}
     ref_means = {l: stats[l]["mean"] for l in steer_layers if l in stats}
     ref_dirs = {l: stats[l]["pc1"] for l in steer_layers if l in stats}
-    if a.head_dir == "own":
+    if a.head_dir != "pc1":
         mu = {lang: head_output_means(model, tok, fit[lang], sorted(layers), batch_size=a.batch_size) for lang in fit}
     ppl_idx = rng.sample(range(len(data.flores("en", "devtest"))), a.n_ppl)
     ppl_sets = {lang: [data.flores(lang, "devtest")[i] for i in ppl_idx] for lang in ("en", a.lang)}
@@ -135,7 +135,9 @@ def main():
         return texts, reps
 
     def head_iv(sel, c):
-        return HeadDirSteer(sel, c, mu[a.lang], mu["en"]) if a.head_dir == "own" else HeadSteer(sel, c, dirs)
+        if a.head_dir == "pc1":
+            return HeadSteer(sel, c, dirs)
+        return HeadDirSteer(sel, c, mu[a.lang], mu["en"], pull=a.head_dir == "pull")
 
     conditions = [("none", 0.0, [])]
     conditions += [("heads", c, [head_iv(heads, c)]) for c in head_coefs]
