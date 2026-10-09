@@ -150,48 +150,81 @@ paths are unchanged for that case.
 The identical discovery (30 examples, same selection rule: mean exact effect
 >= 0.10, sign agreement >= 0.75) and held-out validation (50 fresh FLORES
 pairs, indices 100-149, against layer-matched random controls) used for
-EN->ES above were run for EN->RU, EN->ZH, and EN->HI:
+EN->ES above were run for EN->FR, EN->RU, EN->ZH, and EN->HI. FR, ZH and HI
+are the three other language pairs Goncharov et al. (2025, arXiv 2510.13849)
+-- the paper the residual-steering baseline in `intervention/` reproduces --
+report numbers for; RU is not one of their four pairs and is an extra data
+point on the shared-vs-disjoint-circuit question below rather than a
+baseline-matched comparison.
 
 | pair | heads | discovery rho | sufficiency mean | vs random p95 | necessity mean | vs random p95 | pass |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | en->es | 5  | 0.8412 | +1.2216 | +0.0989 | +0.8613 | +0.1101 | yes |
+| en->fr | 4  | 0.9186 | +0.9265 | +0.1335 | +0.2787 | +0.0715 | yes |
 | en->ru | 13 | 0.9497 | +5.2045 | +0.3717 | +3.6745 | +0.3448 | yes |
 | en->zh | 14 | 0.7366 | +6.6269 | +2.0458 | +3.7011 | +0.8665 | yes |
 | en->hi | 1  | 0.7006 | +0.0047 | +0.0384 | +0.1475 | +0.1685 | **no** |
 
-RU and ZH both replicate on held-out data with wide margins over their random
-controls. HI's 30-example screen selected a single head (L25H10), which does
-not hold up out of sample: its sufficiency bootstrap CI straddles zero and
-sits below the random-control 95th percentile, and necessity falls short of
-its control bar too. Read this as the EN->HI screen not finding a circuit at
-this example count and threshold, not as evidence EN->HI has no circuit; a
-rerun with more discovery examples or a lower effect threshold would be
-needed before concluding either way. With only one selected head, there are
-only `C(11, 1) = 11` layer-matched random head sets available, so
+FR, RU and ZH all replicate on held-out data with wide margins over their
+random controls. HI's 30-example screen selected a single head (L25H10),
+which does not hold up out of sample: its sufficiency bootstrap CI straddles
+zero and sits below the random-control 95th percentile, and necessity falls
+short of its control bar too. Read this as the EN->HI screen not finding a
+circuit at this example count and threshold, not as evidence EN->HI has no
+circuit; a rerun with more discovery examples or a lower effect threshold
+would be needed before concluding either way. With only one selected head,
+there are only `C(11, 1) = 11` layer-matched random head sets available, so
 `run_head_validation.py` clamps `--n-random-controls` down to that
 combinatorial ceiling (a bug this run exposed and fixed: the script used to
 loop forever trying to draw more unique controls than exist) and the
 resulting p95 is correspondingly noisy next to the 100-control estimates for
-RU, ZH and ES.
+the other four pairs.
 
 Comparing the frozen head sets themselves (same model, same selection rule)
 across targets:
 
-| head | es | ru | zh | hi |
-| --- | --- | --- | --- | --- |
-| L16H9  | selected | selected | | |
-| L17H7  | selected | selected | selected | |
-| L22H6  | selected | selected | | |
-| L25H10 | selected | selected | selected | selected (discovery only; fails holdout) |
-| L27H6  | selected | selected | | |
+| head | es | fr | ru | zh | hi |
+| --- | --- | --- | --- | --- | --- |
+| L16H9  | selected | | selected | | |
+| L17H7  | selected | | selected | selected | |
+| L22H6  | selected | | selected | | |
+| L25H7  | | selected | selected | selected | |
+| L25H10 | selected | selected | selected | selected | selected (discovery only; fails holdout) |
+| L27H6  | selected | | selected | | |
 
 ES's five heads are a strict subset of RU's thirteen. ZH keeps two of the
-five (L17H7, L25H10). L25H10 is the only head selected in every language
-screened, and it is the same head `## L25H10 convergence motif` above
-identifies as where the EN->ES source paths converge -- consistent with a
-shared core that a validated EN->HI circuit may or may not extend to. Full
-per-example results are in `results/qwen25_en_{ru,zh,hi}_heads.json` and
-`results/qwen25_en_{ru,zh,hi}_head_validation_holdout.json`.
+five (L17H7, L25H10); FR keeps one (L25H10) but shares L25H7 with RU and ZH
+instead. L25H10 is the only head selected at discovery time in every
+language screened, and it is the same head `## L25H10 convergence motif`
+above identifies as where the EN->ES source paths converge -- consistent
+with a shared core that a validated EN->HI circuit may or may not extend to.
+Full per-example results are in `results/qwen25_en_{fr,ru,zh,hi}_heads.json`
+and `results/qwen25_en_{fr,ru,zh,hi}_head_validation_holdout.json`.
+
+### Minimality: is the shared core doing the work, or the extra heads?
+
+Head overlap alone does not say how much of a language's effect the shared
+heads carry versus the heads unique to it. `run_minimality_ablation.py`
+splits RU's and ZH's frozen sets into the subset overlapping ES's five heads
+and the remaining extra heads, and evaluates sufficiency and necessity for
+each subset alone on the same held-out examples as the main validation:
+
+| | RU overlap (5 heads) | RU extra (8 heads) | ZH overlap (2 heads) | ZH extra (12 heads) |
+| --- | ---: | ---: | ---: | ---: |
+| sufficiency mean | +2.1367 | +2.2279 | +1.2424 | +4.4433 |
+| % of full sufficiency | 41% | 43% | 19% | 67% |
+| necessity mean | +1.0850 | +0.9017 | +0.7188 | +2.4508 |
+| % of full necessity | 30% | 25% | 19% | 66% |
+
+Every subset's bootstrap CI excludes zero (full results in
+`results/qwen25_en_{ru,zh}_minimality_ablation.json`), so neither subset is
+noise. But the two languages split differently: for RU, the ES-overlapping
+core and RU's own extra heads carry roughly equal shares of the effect. For
+ZH, the overlapping core is a minority contributor (~19%) and ZH-specific
+heads carry most of it (~66-67%). The shared core's causal *weight*, not
+just whether it is present, shrinks as the target gets more typologically
+distant from Spanish -- consistent with the raw head-overlap gradient above,
+now quantified.
 
 To discover and validate a circuit for another language:
 
@@ -213,6 +246,14 @@ and the `intervention/` harness consume. That filename matches the
 template `experiments/configs/language_grid.yaml` already uses, so each
 validated language slots directly into the existing `qwen25`/`llama32` x
 `es`/`ru`/`zh`/`hi` experiment grid without further config changes.
+
+Minimality against another language's frozen set:
+
+```bash
+python discovery/qwen2.5-1.5b/run_minimality_ablation.py --lang ru \
+  --reference-heads-json discovery/qwen2.5-1.5b/results/qwen25_en_es_heads.json \
+  --out results/qwen25_en_ru_minimality_ablation.json
+```
 
 ## Reproducing the discovery pipeline
 
