@@ -154,13 +154,6 @@ def canonical_head_set(heads):
 
 
 def max_unique_controls(selected, n_heads):
-    """
-    Size of the control space: the product, over layers, of choosing
-    len(chosen) heads from the (n_heads - len(chosen)) heads not in the
-    selected set for that layer. A head set with few heads in a layer
-    (e.g. a single-head circuit) can make this far smaller than the
-    requested control count.
-    """
     total = 1
 
     for chosen in selected.values():
@@ -657,8 +650,6 @@ def main():
             )
         )
 
-        # Sufficiency:
-        # target-language head outputs -> English prompt.
         patched = patched_metrics_batch(
             model=model,
             target_inputs=en_inputs,
@@ -676,8 +667,6 @@ def main():
             suff
         )
 
-        # Necessity-style reverse patch:
-        # English head outputs -> target-language prompt.
         patched_reverse = (
             patched_metrics_batch(
                 model=model,

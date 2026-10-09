@@ -8,15 +8,6 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _load_common(model_dir, module_name):
-    """
-    Load a model directory's common.py under a private module name.
-
-    Both discovery/qwen2.5-1.5b/common.py and discovery/llama-3.2-1b/common.py
-    are meant to be imported as the bare name "common" by scripts that run
-    with that directory on sys.path. Loading both under the same test
-    process requires distinct module names to avoid one shadowing the
-    other in sys.modules.
-    """
     path = REPO / "discovery" / model_dir / "common.py"
     spec = importlib.util.spec_from_file_location(module_name, path)
     module = importlib.util.module_from_spec(spec)

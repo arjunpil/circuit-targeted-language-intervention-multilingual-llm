@@ -191,14 +191,12 @@ def main():
             device,
         )
 
-        # Clean target-language head activations.
         clean_z = capture_head_outputs(
             model,
             target_inputs,
             LAYERS,
         )
 
-        # Keep only the final-position vectors in CPU cache.
         clean_cache[
             example["index"]
         ] = {
@@ -384,10 +382,6 @@ def main():
         )
 
 
-    # --------------------------------------------------------
-    # Exact patching of frozen top-k attribution candidates
-    # --------------------------------------------------------
-
     print()
     print("=" * 72)
     print("EXACT HEAD PATCHING")
@@ -395,7 +389,6 @@ def main():
 
     exact_rows = []
 
-    # Fast lookup of per-example attribution for sign agreement.
     attr_lookup = {
         (
             row["flores_index"],
@@ -419,8 +412,6 @@ def main():
             device,
         )
 
-        # Rebuild the cached final-position clean vectors in the
-        # shape expected by exact_head_patch_metric.
         clean_z = {}
 
         for layer in LAYERS:
@@ -581,7 +572,6 @@ def main():
         mean_exact,
     )
 
-    # Selection rule.
     selected = [
         row
         for row in exact_summary
