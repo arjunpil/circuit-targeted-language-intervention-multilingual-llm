@@ -1,5 +1,6 @@
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,8 @@ import torch
 from common import (
     ROOT,
     build_position_matched_examples,
+    default_heads_json,
+    default_metric_json,
     head_dim,
     language_metric,
     load_metric_tokens,
@@ -19,7 +22,7 @@ from common import (
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
-            "Validate the frozen Llama-3.2-1B EN->ES head set "
+            "Validate a frozen Llama-3.2-1B EN<->target head set "
             "against layer-matched random controls."
         )
     )
@@ -30,25 +33,33 @@ def parse_args():
     )
 
     p.add_argument(
+        "--lang",
+        default="es",
+        help="Target language code (es, ru, zh, hi, ko, ...).",
+    )
+
+    p.add_argument(
         "--heads-json",
-        default=(
-            "discovery/llama-3.2-1b/results/"
-            "llama32_en_es_heads.json"
+        default=None,
+        help=(
+            "Defaults to "
+            "discovery/llama-3.2-1b/results/llama32_en_<lang>_heads.json."
         ),
     )
 
     p.add_argument(
         "--metric-json",
-        default=(
-            "discovery/llama-3.2-1b/results/"
-            "en_es_language_metric.json"
+        default=None,
+        help=(
+            "Defaults to "
+            "discovery/llama-3.2-1b/results/en_<lang>_language_metric.json."
         ),
     )
 
     p.add_argument(
         "--start",
         type=int,
-        default=110,
+        default=100,
     )
 
     p.add_argument(
@@ -95,13 +106,24 @@ def parse_args():
 
     p.add_argument(
         "--out",
-        default=(
-            "results/llama32_full_validation/"
-            "head_validation.json"
+        default=None,
+        help=(
+            "Defaults to "
+            "results/llama32_head_validation/head_validation_<lang>.json "
+            "(head_validation.json for --lang es)."
         ),
     )
 
     return p.parse_args()
+
+
+def default_out_path(lang):
+    base = ROOT / "results/llama32_head_validation"
+
+    if lang == "es":
+        return base / "head_validation.json"
+
+    return base / f"head_validation_{lang}.json"
 
 
 def load_frozen_heads(path):
@@ -131,6 +153,16 @@ def canonical_head_set(heads):
     )
 
 
+def max_unique_controls(selected, n_heads):
+    total = 1
+
+    for chosen in selected.values():
+        available = n_heads - len(chosen)
+        total *= math.comb(available, len(chosen))
+
+    return total
+
+
 def make_random_controls(
     selected,
     n_heads,
@@ -139,11 +171,21 @@ def make_random_controls(
 ):
     rng = np.random.default_rng(seed)
 
+    feasible = max_unique_controls(selected, n_heads)
+
+    if n_controls > feasible:
+        print(
+            f"Warning: only {feasible} unique matched control set(s) "
+            f"exist for this head set; requested {n_controls}. "
+            f"Using all {feasible}."
+        )
+        n_controls = feasible
+
     controls = []
     seen = set()
 
     attempts = 0
-    max_attempts = n_controls * 1000
+    max_attempts = max(n_controls, 1) * 1000
 
     while len(controls) < n_controls:
         attempts += 1
@@ -190,7 +232,7 @@ def forward_capture_final_heads(
     inputs,
     layers,
     english_ids,
-    spanish_ids,
+    target_ids,
 ):
     store = {}
     handles = []
@@ -228,7 +270,7 @@ def forward_capture_final_heads(
         metric = language_metric(
             outputs.logits[:, -1, :],
             english_ids,
-            spanish_ids,
+            target_ids,
         )[0]
 
     finally:
@@ -245,7 +287,7 @@ def patched_metrics_batch(
     source_z,
     head_sets,
     english_ids,
-    spanish_ids,
+    target_ids,
 ):
     batch_size = len(head_sets)
 
@@ -335,7 +377,7 @@ def patched_metrics_batch(
         metric = language_metric(
             outputs.logits[:, -1, :],
             english_ids,
-            spanish_ids,
+            target_ids,
         )
 
         values = (
@@ -458,22 +500,33 @@ def json_heads(heads):
 def main():
     args = parse_args()
 
+    heads_json = (
+        ROOT / args.heads_json
+        if args.heads_json is not None
+        else default_heads_json(args.lang, "llama32")
+    )
+
+    metric_json = (
+        ROOT / args.metric_json
+        if args.metric_json is not None
+        else default_metric_json(args.lang)
+    )
+
     frozen_data, selected = (
-        load_frozen_heads(
-            ROOT / args.heads_json
-        )
+        load_frozen_heads(heads_json)
     )
 
     metric_data = load_metric_tokens(
-        ROOT / args.metric_json
+        metric_json,
+        lang=args.lang,
     )
 
     english_ids = metric_data[
         "english_token_ids"
     ]
 
-    spanish_ids = metric_data[
-        "spanish_token_ids"
+    target_ids = metric_data[
+        "target_token_ids"
     ]
 
     model, tok = load_model_and_tokenizer(
@@ -498,6 +551,7 @@ def main():
     print("FROZEN HEAD-SET VALIDATION")
     print("=" * 72)
     print("model:", args.model)
+    print("language pair: en ->", args.lang)
     print(
         "selected heads:",
         selected_count,
@@ -529,6 +583,7 @@ def main():
             n_examples=args.n_examples,
             max_len=args.max_len,
             min_len=args.min_len,
+            lang=args.lang,
         )
     )
 
@@ -570,8 +625,8 @@ def main():
             device,
         )
 
-        es_inputs = model_inputs(
-            example["es_ids"],
+        target_inputs = model_inputs(
+            example["target_ids"],
             device,
         )
 
@@ -581,29 +636,27 @@ def main():
                 en_inputs,
                 layers,
                 english_ids,
-                spanish_ids,
+                target_ids,
             )
         )
 
-        base_es, es_z = (
+        base_target, target_z = (
             forward_capture_final_heads(
                 model,
-                es_inputs,
+                target_inputs,
                 layers,
                 english_ids,
-                spanish_ids,
+                target_ids,
             )
         )
 
-        # Sufficiency:
-        # Spanish head outputs -> English prompt.
         patched = patched_metrics_batch(
             model=model,
             target_inputs=en_inputs,
-            source_z=es_z,
+            source_z=target_z,
             head_sets=[selected],
             english_ids=english_ids,
-            spanish_ids=spanish_ids,
+            target_ids=target_ids,
         )[0]
 
         suff = float(
@@ -614,21 +667,19 @@ def main():
             suff
         )
 
-        # Necessity-style reverse patch:
-        # English head outputs -> Spanish prompt.
         patched_reverse = (
             patched_metrics_batch(
                 model=model,
-                target_inputs=es_inputs,
+                target_inputs=target_inputs,
                 source_z=en_z,
                 head_sets=[selected],
                 english_ids=english_ids,
-                spanish_ids=spanish_ids,
+                target_ids=target_ids,
             )[0]
         )
 
         necessity = float(
-            base_es - patched_reverse
+            base_target - patched_reverse
         )
 
         selected_necessity.append(
@@ -654,21 +705,21 @@ def main():
                 patched_metrics_batch(
                     model=model,
                     target_inputs=en_inputs,
-                    source_z=es_z,
+                    source_z=target_z,
                     head_sets=batch,
                     english_ids=english_ids,
-                    spanish_ids=spanish_ids,
+                    target_ids=target_ids,
                 )
             )
 
             nec_values = (
                 patched_metrics_batch(
                     model=model,
-                    target_inputs=es_inputs,
+                    target_inputs=target_inputs,
                     source_z=en_z,
                     head_sets=batch,
                     english_ids=english_ids,
-                    spanish_ids=spanish_ids,
+                    target_ids=target_ids,
                 )
             )
 
@@ -695,7 +746,7 @@ def main():
                 random_necessity[
                     control_i
                 ].append(
-                    float(base_es - value)
+                    float(base_target - value)
                 )
 
         example_rows.append(
@@ -706,8 +757,8 @@ def main():
                     example["length"],
                 "baseline_en_metric":
                     base_en,
-                "baseline_es_metric":
-                    base_es,
+                "baseline_target_metric":
+                    base_target,
                 "sufficiency_effect":
                     suff,
                 "necessity_effect":
@@ -765,8 +816,14 @@ def main():
     result = {
         "model":
             args.model,
+        "frozen_head_source_model":
+            frozen_data.get("model"),
+        "input_protocol": (
+            "raw FLORES-200 devtest prefixes; "
+            "no chat template"
+        ),
         "language_pair":
-            "en->es",
+            f"en->{args.lang}",
         "activation_site":
             "attention head output before o_proj",
         "selected_heads":
@@ -810,7 +867,11 @@ def main():
             example_rows,
     }
 
-    out = ROOT / args.out
+    out = (
+        ROOT / args.out
+        if args.out is not None
+        else default_out_path(args.lang)
+    )
 
     out.parent.mkdir(
         parents=True,

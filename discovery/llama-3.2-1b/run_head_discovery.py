@@ -10,6 +10,7 @@ from common import (
     ROOT,
     build_position_matched_examples,
     capture_head_outputs,
+    default_metric_json,
     exact_head_patch_metric,
     forward_capture_head_outputs,
     head_dim,
@@ -23,7 +24,7 @@ from common import (
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
-            "Run Llama-3.2-1B EN->ES attention-head discovery "
+            "Run Llama-3.2-1B EN<->target attention-head discovery "
             "and exact activation patching."
         )
     )
@@ -31,6 +32,12 @@ def parse_args():
     p.add_argument(
         "--model",
         default="meta-llama/Llama-3.2-1B",
+    )
+
+    p.add_argument(
+        "--lang",
+        default="es",
+        help="Target language code (es, ru, zh, hi, ko, ...).",
     )
 
     p.add_argument(
@@ -65,36 +72,53 @@ def parse_args():
 
     p.add_argument(
         "--metric-json",
-        default=(
-            "discovery/llama-3.2-1b/results/"
-            "en_es_language_metric.json"
+        default=None,
+        help=(
+            "Defaults to "
+            "discovery/llama-3.2-1b/results/en_<lang>_language_metric.json."
         ),
     )
 
     p.add_argument(
         "--out",
-        default=(
-            "results/discovery_repro/"
-            "head_discovery.json"
+        default=None,
+        help=(
+            "Defaults to "
+            "results/discovery_repro/head_discovery_<lang>.json "
+            "(head_discovery.json for --lang es)."
         ),
     )
 
     return p.parse_args()
 
 
+def default_out_path(lang):
+    if lang == "es":
+        return ROOT / "results/discovery_repro/head_discovery.json"
+
+    return ROOT / f"results/discovery_repro/head_discovery_{lang}.json"
+
+
 def main():
     args = parse_args()
 
-    metric_data = load_metric_tokens(
+    metric_json = (
         ROOT / args.metric_json
+        if args.metric_json is not None
+        else default_metric_json(args.lang)
+    )
+
+    metric_data = load_metric_tokens(
+        metric_json,
+        lang=args.lang,
     )
 
     english_ids = metric_data[
         "english_token_ids"
     ]
 
-    spanish_ids = metric_data[
-        "spanish_token_ids"
+    target_ids = metric_data[
+        "target_token_ids"
     ]
 
     model, tok = load_model_and_tokenizer(
@@ -120,6 +144,7 @@ def main():
             n_examples=args.n_examples,
             max_len=args.max_len,
             min_len=args.min_len,
+            lang=args.lang,
         )
     )
 
@@ -132,6 +157,7 @@ def main():
     print("=" * 72)
     print("HEAD ATTRIBUTION SCREEN")
     print("=" * 72)
+    print("language pair: en ->", args.lang)
     print("examples:", len(examples))
     print(
         "indices:",
@@ -160,19 +186,17 @@ def main():
             device,
         )
 
-        es_inputs = model_inputs(
-            example["es_ids"],
+        target_inputs = model_inputs(
+            example["target_ids"],
             device,
         )
 
-        # Clean Spanish head activations.
         clean_z = capture_head_outputs(
             model,
-            es_inputs,
+            target_inputs,
             LAYERS,
         )
 
-        # Keep only the final-position vectors in CPU cache.
         clean_cache[
             example["index"]
         ] = {
@@ -207,7 +231,7 @@ def main():
                 :,
             ],
             english_ids,
-            spanish_ids,
+            target_ids,
         )[0]
 
         z_tensors = [
@@ -358,10 +382,6 @@ def main():
         )
 
 
-    # --------------------------------------------------------
-    # Exact patching of frozen top-k attribution candidates
-    # --------------------------------------------------------
-
     print()
     print("=" * 72)
     print("EXACT HEAD PATCHING")
@@ -369,7 +389,6 @@ def main():
 
     exact_rows = []
 
-    # Fast lookup of per-example attribution for sign agreement.
     attr_lookup = {
         (
             row["flores_index"],
@@ -393,8 +412,6 @@ def main():
             device,
         )
 
-        # Rebuild the cached final-position clean vectors in the
-        # shape expected by exact_head_patch_metric.
         clean_z = {}
 
         for layer in LAYERS:
@@ -421,7 +438,7 @@ def main():
                         :,
                     ],
                     english_ids,
-                    spanish_ids,
+                    target_ids,
                 )[0]
             )
 
@@ -438,8 +455,8 @@ def main():
                     clean_z=clean_z,
                     english_token_ids=
                         english_ids,
-                    spanish_token_ids=
-                        spanish_ids,
+                    target_token_ids=
+                        target_ids,
                 )
             )
 
@@ -555,7 +572,6 @@ def main():
         mean_exact,
     )
 
-    # Selection rule.
     selected = [
         row
         for row in exact_summary
@@ -616,7 +632,7 @@ def main():
         "model":
             args.model,
         "language_pair":
-            "en->es",
+            f"en->{args.lang}",
         "activation_site":
             "attention head output before o_proj",
         "example_indices":
@@ -650,7 +666,11 @@ def main():
             exact_rows,
     }
 
-    out = ROOT / args.out
+    out = (
+        ROOT / args.out
+        if args.out is not None
+        else default_out_path(args.lang)
+    )
 
     out.parent.mkdir(
         parents=True,

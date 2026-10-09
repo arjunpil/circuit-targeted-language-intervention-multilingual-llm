@@ -11,13 +11,13 @@ from common import LANG_NAMES, ROOT, default_metric_json, flores
 def parse_args():
     p = argparse.ArgumentParser(
         description=(
-            "Build the Llama-3.2-1B EN<->target token-set metric "
+            "Build the Qwen2.5-1.5B EN<->target token-set metric "
             "from FLORES-200 dev."
         )
     )
     p.add_argument(
         "--model",
-        default="meta-llama/Llama-3.2-1B",
+        default="Qwen/Qwen2.5-1.5B",
     )
     p.add_argument(
         "--lang",
@@ -42,7 +42,7 @@ def parse_args():
         default=None,
         help=(
             "Output path. Defaults to "
-            "discovery/llama-3.2-1b/results/en_<lang>_language_metric.json."
+            "discovery/qwen2.5-1.5b/results/en_<lang>_language_metric.json."
         ),
     )
     return p.parse_args()

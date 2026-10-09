@@ -24,11 +24,23 @@ FLORES_URL = (
 LANG_CODES = {
     "en": "eng_Latn",
     "es": "spa_Latn",
+    "ru": "rus_Cyrl",
+    "zh": "zho_Hans",
+    "hi": "hin_Deva",
+    "ko": "kor_Hang",
+}
+
+LANG_NAMES = {
+    "en": "English",
+    "es": "Spanish",
+    "ru": "Russian",
+    "zh": "Chinese",
+    "hi": "Hindi",
+    "ko": "Korean",
 }
 
 
 def ensure_flores():
-    """Download/extract FLORES-200 when it is not already present."""
     if FLORES_DIR.exists():
         return FLORES_DIR
 
@@ -49,14 +61,12 @@ def ensure_flores():
         try:
             tar.extractall(DATA_DIR, filter="data")
         except TypeError:
-            # Compatibility with Python versions without the filter arg.
             tar.extractall(DATA_DIR)
 
     return FLORES_DIR
 
 
 def flores(lang, split="devtest"):
-    """Return FLORES sentences for a supported language."""
     if lang not in LANG_CODES:
         raise ValueError(
             f"Unsupported language: {lang}. "
@@ -78,19 +88,23 @@ def flores(lang, split="devtest"):
         ]
 
 
-def load_metric_tokens(path=None):
-    """
-    Load the frozen EN/ES token sets used by the EN→ES experiment.
+def default_metric_json(lang):
+    if lang == "es":
+        return RESULTS_DIR / "en_es_language_metric.json"
 
-    Keeping the token IDs frozen makes the circuit-discovery run
-    reproduce the metric used for the committed results rather than
-    silently rebuilding a slightly different objective.
-    """
+    return RESULTS_DIR / f"en_{lang}_language_metric.json"
+
+
+def default_heads_json(lang, prefix):
+    if lang == "es":
+        return RESULTS_DIR / f"{prefix}_en_es_heads.json"
+
+    return RESULTS_DIR / f"{prefix}_en_{lang}_heads.json"
+
+
+def load_metric_tokens(path=None, lang="es"):
     if path is None:
-        path = (
-            RESULTS_DIR
-            / "en_es_language_metric.json"
-        )
+        path = default_metric_json(lang)
 
     path = Path(path)
 
@@ -100,9 +114,15 @@ def load_metric_tokens(path=None):
     ) as f:
         data = json.load(f)
 
+    target_ids = data.get(
+        "target_token_ids",
+        data.get("spanish_token_ids"),
+    )
+
     return {
         "english_token_ids": data["english_token_ids"],
-        "spanish_token_ids": data["spanish_token_ids"],
+        "target_token_ids": target_ids,
+        "spanish_token_ids": target_ids,
         "metadata": data,
     }
 
@@ -110,22 +130,16 @@ def load_metric_tokens(path=None):
 def language_metric(
     logits,
     english_token_ids,
-    spanish_token_ids,
+    target_token_ids,
 ):
-    """
-    Spanish-vs-English next-token score.
-
-    Positive values indicate more Spanish-specific next-token mass;
-    negative values indicate more English-specific next-token mass.
-    """
     en = torch.as_tensor(
         english_token_ids,
         device=logits.device,
         dtype=torch.long,
     )
 
-    es = torch.as_tensor(
-        spanish_token_ids,
+    target = torch.as_tensor(
+        target_token_ids,
         device=logits.device,
         dtype=torch.long,
     )
@@ -135,19 +149,18 @@ def language_metric(
         dim=-1,
     )
 
-    es_score = torch.logsumexp(
-        logits.index_select(-1, es),
+    target_score = torch.logsumexp(
+        logits.index_select(-1, target),
         dim=-1,
     )
 
-    return es_score - en_score
+    return target_score - en_score
 
 
 def load_model_and_tokenizer(
     model_name="meta-llama/Llama-3.2-1B",
     device=None,
 ):
-    """Load the model in the configuration used by the pilot."""
     if device is None:
         device = (
             "cuda"
@@ -169,7 +182,6 @@ def load_model_and_tokenizer(
             attn_implementation="sdpa",
         )
     except TypeError:
-        # Compatibility with older Transformers versions.
         model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float32,
@@ -206,21 +218,15 @@ def build_position_matched_examples(
     n_examples,
     max_len=32,
     min_len=6,
+    lang="es",
 ):
-    """
-    Build EN/ES aligned examples using position-matched token prefixes.
-
-    Each pair is independently tokenized, then both sides are truncated
-    to the same token length. This keeps final-position RoPE indices
-    aligned while preserving the aligned FLORES sentence pair.
-    """
     en_texts = flores("en", "devtest")
-    es_texts = flores("es", "devtest")
+    target_texts = flores(lang, "devtest")
 
     stop = min(
         start + n_examples,
         len(en_texts),
-        len(es_texts),
+        len(target_texts),
     )
 
     examples = []
@@ -232,15 +238,15 @@ def build_position_matched_examples(
             return_tensors="pt",
         )["input_ids"][0]
 
-        es_ids = tok(
-            es_texts[index],
+        target_ids = tok(
+            target_texts[index],
             add_special_tokens=False,
             return_tensors="pt",
         )["input_ids"][0]
 
         length = min(
             len(en_ids),
-            len(es_ids),
+            len(target_ids),
             max_len,
         )
 
@@ -252,7 +258,8 @@ def build_position_matched_examples(
                 "index": index,
                 "length": int(length),
                 "en_ids": en_ids[:length],
-                "es_ids": es_ids[:length],
+                "es_ids": target_ids[:length],
+                "target_ids": target_ids[:length],
             }
         )
 
@@ -274,10 +281,6 @@ def capture_head_outputs(
     inputs,
     layers=None,
 ):
-    """
-    Capture z, the concatenated attention-head outputs immediately
-    before each layer's o_proj.
-    """
     if layers is None:
         layers = range(
             model.config.num_hidden_layers
@@ -327,9 +330,6 @@ def forward_capture_head_outputs(
     inputs,
     layers=None,
 ):
-    """
-    Forward pass that keeps captured z tensors attached to autograd.
-    """
     if layers is None:
         layers = range(
             model.config.num_hidden_layers
@@ -378,12 +378,8 @@ def exact_head_patch_metric(
     head,
     clean_z,
     english_token_ids,
-    spanish_token_ids,
+    target_token_ids,
 ):
-    """
-    Replace one final-position attention-head output with its clean
-    counterpart and evaluate the exact language-metric change.
-    """
     dh = head_dim(model)
 
     start = head * dh
@@ -439,7 +435,7 @@ def exact_head_patch_metric(
         value = language_metric(
             logits[:, -1, :],
             english_token_ids,
-            spanish_token_ids,
+            target_token_ids,
         )[0]
     finally:
         handle.remove()
