@@ -138,6 +138,82 @@ activation patching in Qwen2.5-1.5B-Instruct. Replication across additional
 language pairs and model scales is required before making broader claims about
 multilingual language-identity circuitry.
 
+## Other EN<->target language pairs
+
+`common.py`, `build_language_metric.py`, `run_head_discovery.py`, and
+`run_head_validation.py` take a `--lang` argument instead of being fixed to
+Spanish. `LANG_CODES` in `common.py` carries the FLORES-200 code for each
+supported target (`es`, `ru`, `zh`, `hi`, `ko`); `--lang es` reproduces every
+command and result above exactly, since the default metric, heads, and output
+paths are unchanged for that case.
+
+The identical discovery (30 examples, same selection rule: mean exact effect
+>= 0.10, sign agreement >= 0.75) and held-out validation (50 fresh FLORES
+pairs, indices 100-149, against layer-matched random controls) used for
+EN->ES above were run for EN->RU, EN->ZH, and EN->HI:
+
+| pair | heads | discovery rho | sufficiency mean | vs random p95 | necessity mean | vs random p95 | pass |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| en->es | 5  | 0.8412 | +1.2216 | +0.0989 | +0.8613 | +0.1101 | yes |
+| en->ru | 13 | 0.9497 | +5.2045 | +0.3717 | +3.6745 | +0.3448 | yes |
+| en->zh | 14 | 0.7366 | +6.6269 | +2.0458 | +3.7011 | +0.8665 | yes |
+| en->hi | 1  | 0.7006 | +0.0047 | +0.0384 | +0.1475 | +0.1685 | **no** |
+
+RU and ZH both replicate on held-out data with wide margins over their random
+controls. HI's 30-example screen selected a single head (L25H10), which does
+not hold up out of sample: its sufficiency bootstrap CI straddles zero and
+sits below the random-control 95th percentile, and necessity falls short of
+its control bar too. Read this as the EN->HI screen not finding a circuit at
+this example count and threshold, not as evidence EN->HI has no circuit; a
+rerun with more discovery examples or a lower effect threshold would be
+needed before concluding either way. With only one selected head, there are
+only `C(11, 1) = 11` layer-matched random head sets available, so
+`run_head_validation.py` clamps `--n-random-controls` down to that
+combinatorial ceiling (a bug this run exposed and fixed: the script used to
+loop forever trying to draw more unique controls than exist) and the
+resulting p95 is correspondingly noisy next to the 100-control estimates for
+RU, ZH and ES.
+
+Comparing the frozen head sets themselves (same model, same selection rule)
+across targets:
+
+| head | es | ru | zh | hi |
+| --- | --- | --- | --- | --- |
+| L16H9  | selected | selected | | |
+| L17H7  | selected | selected | selected | |
+| L22H6  | selected | selected | | |
+| L25H10 | selected | selected | selected | selected (discovery only; fails holdout) |
+| L27H6  | selected | selected | | |
+
+ES's five heads are a strict subset of RU's thirteen. ZH keeps two of the
+five (L17H7, L25H10). L25H10 is the only head selected in every language
+screened, and it is the same head `## L25H10 convergence motif` above
+identifies as where the EN->ES source paths converge -- consistent with a
+shared core that a validated EN->HI circuit may or may not extend to. Full
+per-example results are in `results/qwen25_en_{ru,zh,hi}_heads.json` and
+`results/qwen25_en_{ru,zh,hi}_head_validation_holdout.json`.
+
+To discover and validate a circuit for another language:
+
+```bash
+python discovery/qwen2.5-1.5b/build_language_metric.py --lang ru
+python discovery/qwen2.5-1.5b/run_head_discovery.py --lang ru \
+  --out results/discovery_repro/qwen25_head_discovery_ru.json
+python discovery/freeze_heads.py \
+  --discovery results/discovery_repro/qwen25_head_discovery_ru.json \
+  --out discovery/qwen2.5-1.5b/results/qwen25_en_ru_heads.json
+python discovery/qwen2.5-1.5b/run_head_validation.py --lang ru \
+  --out discovery/qwen2.5-1.5b/results/qwen25_en_ru_head_validation_holdout.json
+```
+
+`freeze_heads.py` turns a `run_head_discovery.py` dump into the compact
+heads.json format (`qwen25_en_<lang>_heads.json`) that `run_head_validation.py`
+and the `intervention/` harness consume. That filename matches the
+`heads_json: discovery/{model_dir}/results/{model}_en_{lang}_heads.json`
+template `experiments/configs/language_grid.yaml` already uses, so each
+validated language slots directly into the existing `qwen25`/`llama32` x
+`es`/`ru`/`zh`/`hi` experiment grid without further config changes.
+
 ## Reproducing the discovery pipeline
 
 The discovery scripts can be run from the repository root.

@@ -177,3 +177,48 @@ language-metric activation-patching setup used here. They do not by
 themselves establish that the same circuit explains broader
 content-triggered language confusion or generalizes across languages and
 model scales.
+
+## Other EN<->target language pairs
+
+`common.py`, `build_language_metric.py`, `run_head_discovery.py`, and
+`run_head_validation.py` take a `--lang` argument instead of being fixed to
+Spanish. `LANG_CODES` in `common.py` carries the FLORES-200 code for each
+supported target (`es`, `ru`, `zh`, `hi`, `ko`); `--lang es` reproduces every
+command and result above exactly, since the default metric, heads, and output
+paths are unchanged for that case.
+
+This has not yet been run for Llama-3.2-1B: the checkpoint is gated and the
+environment this generalization was written in had no Hugging Face token
+with access to it. `discovery/qwen2.5-1.5b/README.md` has the EN->RU/ZH/HI
+results for Qwen2.5-1.5B under the identical pipeline -- RU and ZH both
+replicate on held-out data with wide margins, HI's single-head discovery
+result does not. Whether Llama's heads behave the same way (and whether the
+same EN->ES heads reappear the way they do for Qwen) is open.
+
+To discover and validate a circuit for another language (requires access to
+the gated `meta-llama/Llama-3.2-1B` checkpoint):
+
+```bash
+python discovery/llama-3.2-1b/build_language_metric.py --lang ru
+python discovery/llama-3.2-1b/run_head_discovery.py --lang ru \
+  --out results/discovery_repro/llama32_head_discovery_ru.json
+python discovery/freeze_heads.py \
+  --discovery results/discovery_repro/llama32_head_discovery_ru.json \
+  --out discovery/llama-3.2-1b/results/llama32_en_ru_heads.json
+python discovery/llama-3.2-1b/run_head_validation.py --lang ru \
+  --out discovery/llama-3.2-1b/results/llama32_en_ru_head_validation_holdout.json
+```
+
+`freeze_heads.py` turns a `run_head_discovery.py` dump into the compact
+heads.json format (`llama32_en_<lang>_heads.json`) that `run_head_validation.py`
+and the `intervention/` harness consume. That filename matches the
+`heads_json: discovery/{model_dir}/results/{model}_en_{lang}_heads.json`
+template `experiments/configs/language_grid.yaml` already uses, so each
+validated language slots directly into the existing `qwen25`/`llama32` x
+`es`/`ru`/`zh`/`hi` experiment grid without further config changes.
+
+Comparing the frozen head sets across target languages (same model, same
+selection rule) is how this repository tests whether EN<->{es,ru,zh,hi}
+rely on a shared language-suppression subcircuit or on mostly disjoint
+per-language heads, and whether that overlap (or lack of it) matches the
+Qwen2.5-1.5B result in `discovery/qwen2.5-1.5b/README.md`.
