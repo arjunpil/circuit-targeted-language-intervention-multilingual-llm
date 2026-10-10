@@ -11,7 +11,7 @@ PILOT_KEYS = (
     "resid_gated_coefs", "resid_own_coefs", "head_coefs", "head_dir", "top_k", "head_min_layer", "n_random", "n_nearby", "seed",
 )
 AUX_KEYS = ("model", "lang", "model_dir", "heads_json", "tag", "on_missing_heads", "allow_head_mismatch", "model_name")
-LANGS = ("es", "ru", "zh", "hi")
+LANGS = ("es", "fr", "ru", "zh", "hi")
 POLICIES = ("error", "standin", "skip")
 
 

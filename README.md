@@ -52,6 +52,36 @@ effect (41% and 43% of full sufficiency), while ZH's overlap is a minority
 contributor (19%) next to its own extra heads (67%). Full numbers in
 `discovery/qwen2.5-1.5b/README.md`.
 
+### Qwen and Llama disagree on how shared the circuit is
+
+Llama-3.2-1B's EN->FR/RU/ZH/HI circuits were discovered and validated the
+same way (`discovery/llama-3.2-1b/README.md`). Normalizing by each target
+language's own circuit size -- what fraction of a target language's heads
+are also in that model's EN->ES circuit -- gives a clean, if informal,
+head-count-based measure of how shared each model's multilingual circuitry
+is:
+
+| pair | Qwen2.5-1.5B ES-overlap | Llama-3.2-1B ES-overlap |
+| --- | ---: | ---: |
+| en->fr | 25% (1 of 4) | 75% (3 of 4) |
+| en->ru | 38% (5 of 13) | 86% (6 of 7) |
+| en->zh | 14% (2 of 14) | 78% (7 of 9) |
+
+Llama's non-ES-pair circuits are 75-86% the same heads as its EN->ES
+circuit, with a handful of extras per language. Qwen's are 14-38% --
+mostly new, language-specific heads, with only a small shared core (and,
+per the minimality ablation above, that core's *causal* share is even
+smaller than its head-count share for ZH). Both models have *some* shared
+core (L25H10 for Qwen; L14H17 and L14H18, selected in all five of Llama's
+pairs, for Llama) and some language-specific recruitment, but at very
+different ratios. Llama also validates (sufficiency and necessity) for
+RU/ZH/HI, where Qwen's own HI circuit does not -- and Llama's FR circuit
+passes sufficiency but fails necessity, the opposite failure pattern from
+any of Qwen's results. Any claim this project makes about "shared vs.
+disjoint multilingual circuitry" should be read as model-dependent, not as
+a single universal answer -- these two 1-1.5B models disagree with each
+other on how shared their own multilingual circuits are.
+
 **The two models' EN->ES circuits sit at the same relative depth** despite
 having different total depths:
 
@@ -109,7 +139,11 @@ LLMs* (arXiv 2511.07498), find both language-specific heads and
 tested language) in Aya-23-8B, Llama-3.2-3B, and Mistral-7B, using a soft-
 mask importance score rather than activation patching. Their language-
 general heads are the same kind of finding as this project's cross-language
-L25H10 result, obtained independently.
+results, obtained independently -- and this project's own Llama-3.2-1B
+result (the same model family they study, L14H17/L14H18 shared across all
+five validated language pairs, 71-86% ES-circuit overlap in every other
+pair) matches their language-general-head framing more closely than Qwen's
+weaker, more language-specific pattern does.
 
 ## Related work this project's claims should be read against
 

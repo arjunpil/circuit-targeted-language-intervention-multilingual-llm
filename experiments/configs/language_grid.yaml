@@ -22,7 +22,7 @@ defaults:
   heads_json: discovery/{model_dir}/results/{model}_en_{lang}_heads.json
 matrix:
   model: [qwen25, llama32]
-  lang: [es, ru, zh, hi]
+  lang: [es, fr, ru, zh, hi]
 overrides:
   - match: {model: qwen25}
     set: {model_dir: qwen2.5-1.5b}
