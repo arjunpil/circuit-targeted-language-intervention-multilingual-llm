@@ -238,7 +238,7 @@ def test_repo_heads_files_resolve_to_circuits():
     assert by_id["qwen25_en_es"] == "circuit" and by_id["llama32_en_es"] == "circuit"
     for lang in ("ru", "zh", "hi"):
         assert by_id[f"qwen25_en_{lang}"] == "circuit"
-        assert by_id[f"llama32_en_{lang}"] == "standin"
+        assert by_id[f"llama32_en_{lang}"] == "circuit"
     assert len(by_id) == 8
 
 

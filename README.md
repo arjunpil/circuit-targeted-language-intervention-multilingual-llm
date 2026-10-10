@@ -15,7 +15,7 @@ code-switch continuation (TED) and the Language Confusion Benchmark (LCB).
 | model | en->es | en->fr | en->ru | en->zh | en->hi |
 | --- | --- | --- | --- | --- | --- |
 | Qwen2.5-1.5B | validated | validated | validated | validated | discovery found no held-out-robust circuit |
-| Llama-3.2-1B | validated | not yet run (gated checkpoint) | not yet run | not yet run | not yet run |
+| Llama-3.2-1B | validated | sufficient, fails held-out necessity | validated | validated | validated |
 
 "Validated" means the frozen head set passed held-out sufficiency and
 necessity against 100 layer-matched random control sets. Full numbers,
