@@ -183,17 +183,33 @@ model scales.
 `common.py`, `build_language_metric.py`, `run_head_discovery.py`, and
 `run_head_validation.py` take a `--lang` argument instead of being fixed to
 Spanish. `LANG_CODES` in `common.py` carries the FLORES-200 code for each
-supported target (`es`, `ru`, `zh`, `hi`, `ko`); `--lang es` reproduces every
+supported target (`es`, `fr`, `ru`, `zh`, `hi`, `ko`); `--lang es` reproduces every
 command and result above exactly, since the default metric, heads, and output
 paths are unchanged for that case.
 
-This has not yet been run for Llama-3.2-1B: the checkpoint is gated and the
-environment this generalization was written in had no Hugging Face token
-with access to it. `discovery/qwen2.5-1.5b/README.md` has the EN->RU/ZH/HI
-results for Qwen2.5-1.5B under the identical pipeline -- RU and ZH both
-replicate on held-out data with wide margins, HI's single-head discovery
-result does not. Whether Llama's heads behave the same way (and whether the
-same EN->ES heads reappear the way they do for Qwen) is open.
+EN->FR, EN->RU, EN->ZH and EN->HI were run with the commands below: the same
+discovery as EN->ES (30 examples, mean exact effect >= 0.10, sign agreement
+>= 0.75) and held-out validation on 50 FLORES pairs, indices 100-149, against
+100 layer-matched random controls. The EN->ES row is the run above, whose
+holdout used indices 110-159.
+
+| pair | heads | discovery rho | sufficiency mean | vs random p95 | necessity mean | vs random p95 | pass |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| en->es | 12 | 0.9466 | +3.8811 | +0.0780 | +4.8071 | +0.2891 | yes |
+| en->fr | 4  | 0.9502 | +0.7052 | +0.1406 | +0.3673 | +0.6918 | **no** |
+| en->ru | 7  | 0.9488 | +3.7831 | +0.1082 | +3.2572 | +0.4445 | yes |
+| en->zh | 9  | 0.9840 | +5.4520 | +0.1362 | +3.3743 | +0.5892 | yes |
+| en->hi | 14 | 0.9582 | +7.4696 | +0.1864 | +8.2244 | +0.5772 | yes |
+
+RU, ZH and HI pass both tests. FR's four heads pass sufficiency but not
+necessity: patching English activations into them on French prompts moves
+the metric less than the 95th percentile of the same patch on four random
+heads from the same layers (they sit at the 91st percentile), though their
+bootstrap CI stays above zero. HI behaves differently from Qwen2.5-1.5B,
+where the EN->HI screen picked a single head that failed holdout.
+
+L14H17 and L14H18 are selected in all five pairs. The EN->ES heads cover 3 of
+FR's 4, 6 of RU's 7, 7 of ZH's 9 and 10 of HI's 14.
 
 To discover and validate a circuit for another language (requires access to
 the gated `meta-llama/Llama-3.2-1B` checkpoint):

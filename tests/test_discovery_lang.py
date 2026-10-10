@@ -19,7 +19,7 @@ def _load_common(model_dir, module_name):
 QWEN_COMMON = _load_common("qwen2.5-1.5b", "_test_qwen_common")
 LLAMA_COMMON = _load_common("llama-3.2-1b", "_test_llama_common")
 
-EXPECTED_LANGS = {"en", "es", "ru", "zh", "hi", "ko"}
+EXPECTED_LANGS = {"en", "es", "fr", "ru", "zh", "hi", "ko"}
 
 
 def test_both_model_dirs_support_the_same_languages():

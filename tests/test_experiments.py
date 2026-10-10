@@ -236,10 +236,10 @@ def test_repo_heads_files_resolve_to_circuits():
     grid = cfgmod.expand(cfgmod.load(REPO / "experiments" / "configs" / "language_grid.yaml"), REPO)
     by_id = {r["run_id"]: r["head_source"] for r in grid}
     assert by_id["qwen25_en_es"] == "circuit" and by_id["llama32_en_es"] == "circuit"
-    for lang in ("ru", "zh", "hi"):
+    for lang in ("fr", "ru", "zh", "hi"):
         assert by_id[f"qwen25_en_{lang}"] == "circuit"
-        assert by_id[f"llama32_en_{lang}"] == "standin"
-    assert len(by_id) == 8
+        assert by_id[f"llama32_en_{lang}"] == "circuit"
+    assert len(by_id) == 10
 
 
 def test_new_pilot_flags_are_supported():

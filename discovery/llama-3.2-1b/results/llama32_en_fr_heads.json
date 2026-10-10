@@ -1,0 +1,21 @@
+{
+  "heads": {
+    "14": [
+      17,
+      18
+    ],
+    "12": [
+      5,
+      17
+    ]
+  },
+  "model": "meta-llama/Llama-3.2-1B",
+  "language_pair": "en->fr",
+  "activation_site": "attention head output before o_proj",
+  "discovery_examples": 30,
+  "heldout_examples": 50,
+  "discovery_indices": [
+    0,
+    29
+  ]
+}

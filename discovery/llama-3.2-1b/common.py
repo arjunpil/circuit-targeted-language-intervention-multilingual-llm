@@ -24,6 +24,7 @@ FLORES_URL = (
 LANG_CODES = {
     "en": "eng_Latn",
     "es": "spa_Latn",
+    "fr": "fra_Latn",
     "ru": "rus_Cyrl",
     "zh": "zho_Hans",
     "hi": "hin_Deva",
@@ -33,6 +34,7 @@ LANG_CODES = {
 LANG_NAMES = {
     "en": "English",
     "es": "Spanish",
+    "fr": "French",
     "ru": "Russian",
     "zh": "Chinese",
     "hi": "Hindi",
